@@ -636,8 +636,7 @@ Run against a real zsh 5.9, not eyeballed:
 
 **Not verified:** macOS itself — there is no Mac in the loop, so `brew`,
 `defaults` and the mac topic's commands are unexercised as *commands* (the file
-parses and renders); and the CI gate has still never executed on GitHub's
-runners, because the org's Actions account is billing-locked.
+parses and renders).
 
 ## Design notes
 
