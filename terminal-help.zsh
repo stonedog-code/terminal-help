@@ -110,8 +110,8 @@ th_source_user() {
     TH_USER_SOURCED=1
 
     if (( TH_USER_STATUS )); then
-        th_warn "${TH_USER_FILE:t} stopped early (exit $TH_USER_STATUS) — everything"
-        th_text "below the failing line was not loaded. Run: th_doctor"
+        th_warn "${TH_USER_FILE:t} returned exit $TH_USER_STATUS — it either stopped"
+        th_text "early at an error, or its last command failed. Run: th_doctor"
     fi
 
     [[ -z $TH_QUIET ]] && th_defined user_on_load && user_on_load

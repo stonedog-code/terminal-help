@@ -50,7 +50,33 @@ th_doctor() {
         th_warn "exists but is not readable (mode $(stat -f %Lp "$user_file" 2>/dev/null || stat -c %a "$user_file" 2>/dev/null))"
         (( problems++ ))
     else
-        th_row "Size:" "$(wc -l < "$user_file" | tr -d ' ') lines"
+        # Lines, and then the number that actually decides whether anything
+        # happens: a file of pure comments loads perfectly and prints nothing,
+        # which looks exactly like a file that never loaded at all.
+        local total live
+        total=$(wc -l < "$user_file" | tr -d ' ')
+        # grep -c exits 1 on a count of zero, so `|| print 0` appended a second
+        # zero and the arithmetic below choked. Count lines instead.
+        live=$(grep -vE '^[[:space:]]*(#|$)' "$user_file" 2>/dev/null | wc -l | tr -d ' ')
+        th_row "Size:" "$total lines, $live of them executable"
+        if [[ -L $user_file ]]; then
+            th_row "It is a symlink to:" "$(readlink "$user_file")"
+            [[ -r $user_file ]] || th_warn "and the target cannot be read from here"
+        fi
+        if (( live == 0 )); then
+            th_warn "it contains NO executable lines — only comments and blanks."
+            th_text "That is what a freshly installed file looks like: it loads"
+            th_text "cleanly and prints nothing, which is indistinguishable from"
+            th_text "not loading at all. If you copied a file here, check it"
+            th_text "landed: ls -l \"$user_file\""
+            (( problems++ ))
+        else
+            th_text "first executable lines:"
+            local l
+            for l in ${(f)"$(grep -vE '^[[:space:]]*(#|$)' "$user_file" 2>/dev/null | head -3)"}; do
+                th_text "  $l"
+            done
+        fi
         # zsh -n is the honest check: it parses without running anything.
         local errs zsh_bin
         zsh_bin=$(whence -p zsh 2>/dev/null)
@@ -65,10 +91,14 @@ th_doctor() {
         fi
         if [[ -n $TH_USER_SOURCED ]]; then
             if (( ${TH_USER_STATUS:-0} )); then
-                th_warn "it was loaded but STOPPED EARLY (exit $TH_USER_STATUS)"
-                th_text "everything below the failing line never ran. Start a shell with"
+                th_warn "it returned exit $TH_USER_STATUS. That is one of two things:"
+                th_text "  · it stopped early at an error, and everything below that"
+                th_text "    line never ran — a misused builtin does this; or"
+                th_text "  · it ran to the end and its LAST command simply failed"
+                th_text "    (connect_work with the share unreachable, say)"
+                th_text "To tell them apart, run it on its own and read the first error:"
                 th_text "  zsh -f -c 'source $user_file'"
-                th_text "and read the first error: that line is where it stopped."
+                th_text "Then check something defined at the BOTTOM of the file exists."
                 (( problems++ ))
             else
                 th_ok "it loaded cleanly"
