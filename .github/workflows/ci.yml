@@ -55,3 +55,10 @@ jobs:
       # regression and requires the suite to catch it.
       - name: Gate — the test above can actually fail
         run: bash scripts/test-user-file-loads.sh --self-check
+
+      # bash -n on this runner is bash 5, which parses things macOS's bash 3.2
+      # does not. Docker is present on ubuntu-latest, so run the installer on
+      # the bash a Mac actually ships — the closest thing to a Mac that can be
+      # containerised, and the only part of macOS that has bitten us.
+      - name: Gate — the installer works on macOS's bash (3.2)
+        run: bash scripts/test-macos-bash.sh

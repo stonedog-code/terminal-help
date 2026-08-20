@@ -52,24 +52,12 @@ note "bash: ${#bash_files[@]} file(s) parsed"
 # PowerShell runtime — PowerShell is a help TOPIC now (help/powershell/), and
 # that file is zsh like every other, checked by the zsh pass above.
 
-# --- bash 3.2 (macOS) hazards -------------------------------------------------
-# `bash -n` here is bash 5, which parses things macOS's bash 3.2 does not. The
-# one that bit us: a single quote inside $( ) inside a double-quoted string.
-# 3.2 reads that quote as the OUTER string's and dies with "unexpected EOF
-# while looking for matching". The script runs to completion and then fails to
-# parse its own last line — a confusing way to end a successful install.
-#
-# grep is a blunt instrument, but this pattern is specific and the failure it
-# catches is invisible on any modern bash.
-hazard=0
-for f in "${bash_files[@]}"; do
-  if grep -nE '"[^"]*\$\([^)]*'"'" "$f" > /dev/null 2>&1; then
-    note "bash3.2 FAILED  $f — single quote inside \$( ) inside a \"...\" string"
-    grep -nE '"[^"]*\$\([^)]*'"'" "$f" | sed 's/^/               /'
-    hazard=1; fail=1
-  fi
-done
-[ "$hazard" -eq 0 ] && note "bash3.2: ${#bash_files[@]} file(s) free of the nested-quote hazard"
+# bash 3.2 (macOS) used to be approximated here by grepping for a quoting
+# pattern. That guess is retired: scripts/test-macos-bash.sh now parses and RUNS
+# these scripts under the real bash:3.2 image, which is both stricter and
+# honest. The grep produced false positives on lines 3.2 accepts, and a check
+# that cries wolf gets ignored — the same failure this project has already
+# fixed twice in the doctor.
 
 total=$(( ${#zsh_files[@]} + ${#bash_files[@]} ))
 if [ "$total" -eq 0 ]; then
