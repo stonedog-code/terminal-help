@@ -1,0 +1,15 @@
+# The private half — connection details, hostnames, personal aliases.
+# NEVER committed. Start from user.sh.example.
+user.sh
+powershell/user.ps1
+
+# macOS
+.DS_Store
+._*
+
+# Windows
+Thumbs.db
+
+# Agent instructions stay OUT of every repo under energy-solution.
+CLAUDE.md
+.claude/

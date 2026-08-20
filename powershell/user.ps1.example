@@ -1,0 +1,96 @@
+<#
+    user.ps1 — the private half of terminal-help, PowerShell edition.
+    NEVER COMMITTED.
+
+        Copy-Item powershell\user.ps1.example powershell\user.ps1
+        notepad powershell\user.ps1
+
+    This is the only file that knows anything about your machines: hostnames,
+    share names, usernames, jump hosts. It is listed in .gitignore.
+
+    terminal-help calls these hooks if you define them:
+
+        Connect-Work / Disconnect-Work   your share, VPN, tunnel
+        Show-UserInfo                    your own reference sections
+        Invoke-UserOnLoad                what runs on every new shell (the
+                                         ONLY thing that prints at startup
+                                         besides the version line)
+
+    The Write-Th* helpers are available here, so your sections look like the
+    built-in ones: Write-ThHead, Write-ThSub, Write-ThRow, Write-ThNote,
+    Write-ThText, Write-ThWarn, Write-ThOk.
+#>
+
+# ---------------------------------------------------------------------------
+# 🔌 Connection: a mapped network drive
+# ---------------------------------------------------------------------------
+# No password here. Windows stores share credentials in Credential Manager
+# after the first connection (`cmdkey /list` shows them). A password on disk
+# is a plaintext credential with no expiry that every backup will copy.
+
+$Global:WorkServer = 'your-host'          # or an IP
+$Global:WorkShare  = 'your-share'
+$Global:WorkDrive  = 'W:'
+
+function Connect-Work {
+    if (Test-Path $Global:WorkDrive) {
+        Write-ThOk "Already connected at $Global:WorkDrive"
+        return
+    }
+    try {
+        New-PSDrive -Name $Global:WorkDrive.TrimEnd(':') -PSProvider FileSystem `
+            -Root "\\$Global:WorkServer\$Global:WorkShare" -Persist -Scope Global -ErrorAction Stop | Out-Null
+        Write-ThOk "Mapped \\$Global:WorkServer\$Global:WorkShare to $Global:WorkDrive"
+    } catch {
+        Write-ThWarn "Mount failed: $($_.Exception.Message)"
+        Write-ThNote "is the host reachable?  Test-NetConnection $Global:WorkServer -Port 445"
+    }
+}
+
+function Disconnect-Work {
+    if (Test-Path $Global:WorkDrive) {
+        Remove-PSDrive -Name $Global:WorkDrive.TrimEnd(':') -Force
+        Write-ThOk "Disconnected $Global:WorkDrive"
+    } else {
+        Write-ThText "$Global:WorkDrive is not mapped"
+    }
+}
+
+# ---------------------------------------------------------------------------
+# 🔒 Your own reference sections
+# ---------------------------------------------------------------------------
+# Anything you would otherwise keep in a note: internal hostnames, the deploy
+# runbook, the one flag you always forget. It is private, so it can be specific.
+
+function Show-UserInfo {
+    Write-ThHead '🔒' 'My machines'
+    Write-ThRow 'Work share:'  "\\$Global:WorkServer\$Global:WorkShare"
+    Write-ThRow 'Drive:'       $Global:WorkDrive
+    Write-ThRow 'Status:'      $(if (Test-Path $Global:WorkDrive) { 'connected' } else { 'not mapped' })
+    Write-ThRow 'Connect:'     'connect_work   ·   disconnect_work'
+    Write-ThRow 'In Explorer:' "\\$Global:WorkServer\$Global:WorkShare"
+
+    Write-ThSub '🚀' 'Deploys'
+    Write-ThRow 'Staging:' '.\deploy.ps1 -Environment staging'
+    Write-ThNote 'the flag you always forget goes here, where it is private'
+}
+
+# ---------------------------------------------------------------------------
+# 🏁 What runs on every new shell
+# ---------------------------------------------------------------------------
+# terminal-help prints only its version line. Whatever else you want at
+# startup goes here — and every line of it is a line you read all day.
+
+function Invoke-UserOnLoad {
+    # Map the drive automatically. Leave it commented if you would rather it
+    # were on demand: over a slow or absent network this blocks the prompt.
+    # Connect-Work
+
+    # A one-line status instead, which costs nothing:
+    if (Test-Path $Global:WorkDrive) { Write-ThOk 'work share mapped' }
+}
+
+# ---------------------------------------------------------------------------
+# 🏷 Personal aliases
+# ---------------------------------------------------------------------------
+# Set-Alias -Name te -Value notepad.exe -Scope Global
