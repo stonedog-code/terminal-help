@@ -20,6 +20,14 @@ END_MARK="# <<< terminal-help <<<"
 ASSUME_YES=0
 UNINSTALL=0
 TARGETS=""
+LINK=0
+
+# Where the runtime is INSTALLED. Not the clone: ~/.zshrc must not name a path
+# that exists only on the machine the install was run from. A clone lives on a
+# work share, in ~/src, in /tmp — none of which is true on the next machine,
+# and when the path is wrong the source fails, th_source_user is never defined,
+# and the user's own settings file silently never loads.
+TH_INSTALL_DIR="${TH_INSTALL_DIR:-$HOME/.terminal-help}"
 
 # --- pretty ----------------------------------------------------------------
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -40,7 +48,9 @@ terminal-help v$VERSION installer
 
   --targets mac,linux,windows   which platforms to set up (default: ask)
   --yes                         accept defaults, ask nothing
-  --uninstall                   remove the terminal-help block from your rc files
+  --uninstall                   remove the block, and the installed copy in ~/.terminal-help
+  --link                        symlink the clone instead of copying it (for
+                                working ON terminal-help, not with it)
   --help                        this message
 USAGE
 }
@@ -51,6 +61,7 @@ while [ $# -gt 0 ]; do
         --targets=*) TARGETS="${1#*=}"; shift ;;
         --yes|-y)  ASSUME_YES=1; shift ;;
         --uninstall) UNINSTALL=1; shift ;;
+        --link)    LINK=1; shift ;;
         --help|-h) usage; exit 0 ;;
         *) warn "unknown option: $1"; usage; exit 2 ;;
     esac
@@ -130,6 +141,41 @@ strip_block() {  # strip_block <file>
     fi
 }
 
+# Copy the runtime into $HOME so the rc block can reference $HOME and nothing
+# else. Program files only — the user's settings file is never in here.
+install_runtime() {
+    if [ "$LINK" -eq 1 ]; then
+        if [ -e "$TH_INSTALL_DIR" ] && [ ! -L "$TH_INSTALL_DIR" ]; then
+            rm -rf "$TH_INSTALL_DIR"
+        else
+            rm -f "$TH_INSTALL_DIR"
+        fi
+        ln -s "$TH_DIR" "$TH_INSTALL_DIR"
+        ok "linked $TH_INSTALL_DIR → $TH_DIR"
+        note "--link: edits in the clone are live. Do not use this on a machine"
+        note "that only consumes terminal-help — the clone must never move."
+        return 0
+    fi
+
+    [ -L "$TH_INSTALL_DIR" ] && rm -f "$TH_INSTALL_DIR"
+    mkdir -p "$TH_INSTALL_DIR/lib"
+    # Replace lib/ wholesale so a section deleted upstream does not linger.
+    rm -f "$TH_INSTALL_DIR"/lib/*.zsh 2>/dev/null || true
+    cp "$TH_DIR/terminal-help.zsh" "$TH_INSTALL_DIR/"
+    cp "$TH_DIR"/lib/*.zsh          "$TH_INSTALL_DIR/lib/"
+    cp "$TH_DIR/VERSION"            "$TH_INSTALL_DIR/"
+    cp "$TH_DIR/zshrc-user.sh.example" "$TH_INSTALL_DIR/"
+    ok "installed the runtime to $TH_INSTALL_DIR ($(ls "$TH_INSTALL_DIR"/lib/*.zsh | wc -l | tr -d ' ') sections)"
+    note "your ~/.zshrc will reference \$HOME, so it works on any machine"
+}
+
+install_runtime_powershell() {
+    mkdir -p "$1/powershell"
+    cp "$TH_DIR/powershell/TerminalHelp.ps1"           "$1/powershell/"
+    cp "$TH_DIR/powershell/profile-user.ps1.example"   "$1/powershell/"
+    cp "$TH_DIR/VERSION"                               "$1/"
+}
+
 # Ask before touching anything. Declining must leave the file exactly as it
 # was — so the prompt comes BEFORE the block is stripped, never after.
 confirm() {  # confirm <question> ; default yes
@@ -151,10 +197,14 @@ $BEGIN_MARK
 # Put YOUR shell settings in ~/.zshrc-user.sh — aliases, exports, PATH, and
 # the get_user_info / user_on_load hooks. NOT in this file: everything between
 # these two markers is rewritten by terminal-help's installer.
-export TH_HOME="$TH_DIR"
+export TH_HOME="\$HOME/.terminal-help"
 export TH_USER_FILE="\${ZDOTDIR:-\$HOME}/.zshrc-user.sh"
-source "\$TH_HOME/terminal-help.zsh"   # the reference help
-th_source_user                        # your settings, from \$TH_USER_FILE
+if [[ -r "\$TH_HOME/terminal-help.zsh" ]]; then
+    source "\$TH_HOME/terminal-help.zsh"   # the reference help
+    th_source_user                        # your settings, from \$TH_USER_FILE
+elif [[ -r "\$TH_USER_FILE" ]]; then
+    source "\$TH_USER_FILE"                # help absent — your settings still load
+fi
 $END_MARK
 BLOCK
 }
@@ -223,6 +273,10 @@ install_zsh_target() {
     if [ "$UNINSTALL" -eq 1 ]; then
         strip_block "$rc"
         ok "removed the terminal-help block from $rc"
+        if [ -e "$TH_INSTALL_DIR" ]; then
+            rm -rf "$TH_INSTALL_DIR"
+            ok "removed the installed runtime at $TH_INSTALL_DIR"
+        fi
         note "$user_file was left alone — it is yours"
         return 0
     fi
@@ -236,6 +290,7 @@ install_zsh_target() {
         return 0
     fi
 
+    install_runtime
     strip_block "$rc"
     rc_block >> "$rc"
     ok "added the terminal-help block to $rc"
@@ -274,7 +329,7 @@ install_windows_target() {
         say "    ${C_L}powershell -ExecutionPolicy Bypass -File \"$win_dir\\powershell\\install.ps1\"${C_R}"
         say ""
         note "or add these two lines to \$PROFILE by hand:"
-        say "    ${C_L}\$env:TH_HOME = \"$win_dir\"${C_R}"
+        say "    ${C_L}\$env:TH_HOME = Join-Path \$HOME \".terminal-help\"${C_R}"
         say "    ${C_L}. \"\$env:TH_HOME\\powershell\\TerminalHelp.ps1\"${C_R}"
         return 0
     fi
@@ -287,7 +342,7 @@ install_windows_target() {
 
     if ! confirm "Update $profile so terminal-help loads in every PowerShell?"; then
         note "nothing was changed. Add these two lines to \$PROFILE by hand:"
-        say "    ${C_L}\$env:TH_HOME = \"$win_dir\"${C_R}"
+        say "    ${C_L}\$env:TH_HOME = Join-Path \$HOME \".terminal-help\"${C_R}"
         say "    ${C_L}. \"\$env:TH_HOME\\powershell\\TerminalHelp.ps1\"${C_R}"
         return 0
     fi
@@ -295,9 +350,12 @@ install_windows_target() {
     mkdir -p "$(dirname "$profile")"
     strip_block "$profile"
 
+    install_runtime_powershell "$TH_INSTALL_DIR"
+    ok "installed the PowerShell runtime to $TH_INSTALL_DIR"
     {
         printf '%s\n' "$BEGIN_MARK"
-        printf '$env:TH_HOME = "%s"\n' "$win_dir"
+        printf '# Put YOUR PowerShell settings in profile-user.ps1 beside this file.\n'
+        printf '$env:TH_HOME = Join-Path $HOME ".terminal-help"\n'
         printf '. "$env:TH_HOME\\powershell\\TerminalHelp.ps1"\n'
         printf '%s\n' "$END_MARK"
     } >> "$profile"

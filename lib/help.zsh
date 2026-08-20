@@ -39,6 +39,7 @@ get_user_help() {
         return
     fi
 
+    local file="${TH_USER_FILE:-${ZDOTDIR:-$HOME}/.zshrc-user.sh}"
     local -a defined
     th_defined get_user_info && defined+=("get_user_info|🔒 your own reference sections")
 
