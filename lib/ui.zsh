@@ -48,6 +48,38 @@ th_load_colors() {
     done
 }
 
+# --- the section registry --------------------------------------------------
+# Every help file announces its own sections. get_help is built from this, so
+# dropping a file into the user help directory is all it takes to appear there
+# — there is no index to edit, and nothing to keep in sync.
+#
+#   th_register       get_docker_info "🐳 Docker: build, run, compose"
+#   th_register_child get_docker_compose_info "🧩 compose files"
+typeset -ga TH_REG_FN TH_REG_DESC TH_REG_LEVEL
+
+th_register() {  # th_register <function> <description> [level]
+    local fn=$1 desc=$2 level=${3:-0} i
+    # Re-registering a name updates it in place rather than adding a second row:
+    # a user file that overrides a built-in section replaces it, not duplicates it.
+    for (( i = 1; i <= ${#TH_REG_FN}; i++ )); do
+        if [[ ${TH_REG_FN[i]} == "$fn" ]]; then
+            TH_REG_DESC[i]=$desc
+            TH_REG_LEVEL[i]=$level
+            return 0
+        fi
+    done
+    TH_REG_FN+=("$fn"); TH_REG_DESC+=("$desc"); TH_REG_LEVEL+=("$level")
+}
+
+th_register_child() { th_register "$1" "$2" 1 }
+
+# Every get_*_info function currently defined, names only.
+th_info_functions() {
+    local -a out
+    out=(${${(f)"$(whence -wm 'get_*_info' 2>/dev/null)"}%%:*})
+    print -l -- ${(o)out}
+}
+
 th_head() {  # th_head <emoji> <title>
     th_load_colors
     local width=${TH_WIDTH:-64}

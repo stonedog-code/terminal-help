@@ -8,7 +8,7 @@ It runs on **macOS**, **Linux** (zsh) and **Windows** (PowerShell), and it
 prints exactly one line when a shell starts:
 
 ```
-🧰 terminal-help v0.7.0 · get_help
+🧰 terminal-help v0.8.0 · get_help
 ```
 
 Everything host-specific — your servers, your shares, your aliases — lives in
@@ -34,7 +34,7 @@ cd ~/src/terminal-help
 ```
 
 ```
-🧰 terminal-help v0.7.0
+🧰 terminal-help v0.8.0
   Which shells should it be installed for? Pick as many as apply.
 
     1  🍎  macOS       — adds a source line to ~/.zshrc
@@ -76,7 +76,8 @@ Then open a new terminal and type `get_help`.
 |---|---|---|
 | `~/.zshrc` | the marked block, ~10 lines | rewritten, nothing else |
 | `~/.zshrc-user.sh` | **yours** — aliases, exports, hooks | **never** |
-| `~/.terminal-help/` | the runtime: `terminal-help.zsh`, `lib/*.zsh`, `VERSION` | replaced |
+| `~/.zshrc-help.d/` | **yours** — your own `*.help.sh` sections | **never** |
+| `~/.terminal-help/` | the runtime: `terminal-help.zsh`, `lib/`, `help/`, `VERSION` | replaced |
 | the clone | source. Needed to install and to upgrade, and at no other time | — |
 
 **The installer copies; it does not point at the clone.** That matters more than
@@ -286,7 +287,7 @@ the source line and it is read from there instead.
 
 | | |
 |---|---|
-| On every new shell | one line: `🧰 terminal-help v0.7.0 · get_help` |
+| On every new shell | one line: `🧰 terminal-help v0.8.0 · get_help` |
 | Plus | whatever *your* `user_on_load` chooses to print — nothing, by default |
 | Everything else | only when you ask for it by name |
 
@@ -315,47 +316,71 @@ Silence even the version line with `TH_QUIET=1` (put it in `~/.zshenv`, or
 
 ---
 
-## Adding a section
+## 🧩 Adding your own help — drop a file in a folder
 
-One file per topic in `lib/`, loaded automatically — no registration step:
+Help content is **one file per topic**, and yours live in a directory the
+installer creates and then never touches again:
+
+```
+~/.zshrc-help.d/docker.help.sh
+```
 
 ```zsh
-# lib/docker.zsh
+th_register get_docker_info "🐳 Docker: build, run, compose"
+
 get_docker_info() {
     th_head "🐳" "Docker"
-    th_row  "Build:"  "docker build -t {name} ."
+    th_row  "Build:"    "docker build -t {name} ."
     th_note "--platform linux/amd64 when the target is not an M-series Mac"
+    th_sub  "🧩" "Compose"
+    th_row  "Up:"       "docker compose up -d"
 }
 ```
 
-Then add a row to `get_help` in `lib/help.zsh`. The value of a section is in
-the `↳` notes: anyone can look up `docker build`; what is worth writing down is
-the flag whose absence costs an hour.
+Open a new shell and `get_docker_info` prints it, styled like everything else.
+`get_help` lists it under **🧩 Yours**. There is no index to edit and nothing to
+register with the project — the file existing *is* the registration.
 
-One-off personal sections do not need a file in `lib/` at all — define them in
-`~/.zshrc-user.sh` as `get_user_info` and they appear under 🔒 in `get_help`.
+- **`th_register` is optional.** A file that only defines `get_*_info`
+  functions is still found and listed, labelled with its filename. Registering
+  just gives the row a better description.
+- **Reusing a built-in name overrides it.** A `git.help.sh` of your own that
+  defines `get_git_info` replaces the shipped section rather than duplicating
+  it — yours loads second and wins, and the index row is updated in place.
+- **Helpers available to you:** `th_head`, `th_sub`, `th_row`, `th_note`,
+  `th_text`, `th_warn`, `th_ok`. The value of a section is in the `↳` notes:
+  anyone can look up `docker build`; what is worth writing down is the flag
+  whose absence costs an hour.
+- **`README.txt` in that directory** repeats all of this, for the version of you
+  that finds the folder six months from now.
 
-For the PowerShell edition, add the same function to
-`powershell\TerminalHelp.ps1` and a `Set-Alias` next to the others. The two
-editions are deliberately separate files — that means content lives twice, and
-a section added to one is missing from the other until you copy it.
+**PowerShell is the same**, with `profile-help.d\*.help.ps1` beside your
+`$PROFILE`, `Show-*` function names, and `Write-Th*` helpers. Note the built-in
+PowerShell sections still live in one `TerminalHelp.ps1` rather than one file
+per topic — the drop-in mechanism is identical, the built-ins are not yet split.
 
----
+### Changing a section that ships with terminal-help
+
+Those live in `help/*.help.sh` in the clone, one file per topic, each
+registering its own sections at the top. Add a file there and it is picked up
+the same way — the loader globs the directory. `lib/` is machinery (styling,
+the registry, `get_help` itself) and is a different kind of thing.
 
 ## Layout
 
 ```
 terminal-help/
 ├── terminal-help.zsh          the loader — resolves paths, loads lib/, defines th_source_user
-├── lib/
-│   ├── ui.zsh                 colour, emoji and layout helpers; everything else uses them
-│   ├── help.zsh               ❓ the index and the startup banner
-│   ├── git.zsh                🌿 git, branches, worktrees, PRs
-│   ├── python.zsh             🐍 python, uv, uvicorn
-│   ├── mac.zsh                🍎 macOS
-│   ├── linux.zsh              🐧 Linux
-│   ├── windows.zsh            🪟 Windows and PowerShell
-│   └── versions.zsh           📋 what is installed
+├── lib/                       the machinery
+│   ├── ui.zsh                 colour, layout helpers, and the section registry
+│   └── help.zsh               ❓ get_help, built from the registry
+├── help/                      the CONTENT — one file per topic
+│   ├── git.help.sh            🌿 git, branches, worktrees, PRs
+│   ├── python.help.sh         🐍 python, uv, uvicorn
+│   ├── mac.help.sh            🍎 macOS
+│   ├── linux.help.sh          🐧 Linux
+│   ├── windows.help.sh        🪟 Windows and PowerShell
+│   └── versions.help.sh       📋 what is installed
 ├── powershell/
 │   ├── TerminalHelp.ps1       the PowerShell edition, same commands
 │   ├── install.ps1            adds the block to $PROFILE
@@ -408,7 +433,10 @@ Run against real interpreters, not eyeballed:
   Both editions.
 - **Declining the prompt** — `~/.zshrc` byte-identical afterwards, no settings
   file created, no backup left behind.
-- **Installed, then the clone deleted** — the decisive test for v0.7.0. After
+- **Drop-in help files** — a registered file, a file that never calls
+  `th_register`, and a file overriding a built-in: all three load, run, and
+  appear in `get_help` exactly once. Surviving an upgrade checked by md5.
+- **Installed, then the clone deleted** — the decisive test for v0.8.0. After
   `rm -rf` on the source clone, a real zsh and a real `pwsh` both still print
   the version line, load `~/.zshrc-user.sh`, run `user_on_load`, and render
   `get_user_info`. Nothing outside `$HOME` is referenced at runtime.

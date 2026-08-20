@@ -1,6 +1,11 @@
 #!/usr/bin/env zsh
 # 🌿 git — everyday commands, branch naming, worktrees, pull requests.
 
+th_register       get_git_info           "🌿 git — all three sections below"
+th_register_child get_git_branch_info    "🌱 branch naming and commit messages"
+th_register_child get_git_worktree_info  "🌳 worktrees, and the rules that make them work"
+th_register_child get_git_pr_info        "🔀 pull requests with gh"
+
 get_git_info() {
     th_head "🌿" "Git"
     th_row "Where am I:"        "git status -sb"

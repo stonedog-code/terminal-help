@@ -158,6 +158,37 @@ if (Test-Path $userFile) {
     Note 'it is yours from here on — this installer never reads or writes it again'
 }
 
+# --- your own help files ---------------------------------------------------
+$helpDir = Join-Path $profileDir 'profile-help.d'
+if (Test-Path $helpDir) {
+    Ok 'profile-help.d/ already exists — ignored, it is yours'
+} else {
+    New-Item -ItemType Directory -Path $helpDir -Force | Out-Null
+    @(
+        'Your own help sections go here.'
+        ''
+        'Any file named *.help.ps1 in this directory is dot-sourced on every new'
+        'shell, and this directory is never touched by a terminal-help upgrade.'
+        ''
+        '  profile-help.d\docker.help.ps1'
+        '  ------------------------------'
+        '  th_register Show-DockerInfo "Docker: build, run, compose"'
+        ''
+        '  function Show-DockerInfo {'
+        '      Write-ThHead ''*'' ''Docker'''
+        '      Write-ThRow  ''Build:'' ''docker build -t {name} .'''
+        '  }'
+        ''
+        'The th_register line is optional — a file that only defines Show-*'
+        'functions is still found and listed, by its filename.'
+        ''
+        'Helpers: Write-ThHead, Write-ThSub, Write-ThRow, Write-ThNote,'
+        'Write-ThText, Write-ThWarn, Write-ThOk.'
+    ) | Set-Content -Path (Join-Path $helpDir 'README.txt') -Encoding UTF8
+    Ok 'created profile-help.d/ for your own help files'
+    Note "drop a *.help.ps1 in it — see $helpDir\README.txt"
+}
+
 Head '🏁 Done'
 Ok "terminal-help v$Version installed from $ThHome"
 Note 'open a new PowerShell, then type: get_help'

@@ -23,7 +23,12 @@ fail=0
 note() { printf '  %s\n' "$*"; }
 
 # --- zsh ---------------------------------------------------------------------
-zsh_files=(terminal-help.zsh lib/*.zsh)
+# help/*.help.sh is CONTENT, and content is where a typo actually lands. When
+# those files moved out of lib/ this glob stopped matching them and the gate
+# quietly went from 13 files to 7 while still printing OK — the exact
+# green-over-an-empty-set failure this repo's rules warn about. The count in
+# the summary is what caught it, which is why the count is printed.
+zsh_files=(terminal-help.zsh lib/*.zsh help/*.help.sh zshrc-user.sh.example)
 if ! command -v zsh > /dev/null 2>&1; then
   printf 'check-syntax: zsh is not installed, so %s zsh file(s) CANNOT be checked.\n' "${#zsh_files[@]}" >&2
   printf '              Install it (apt-get install zsh / brew install zsh) — a skipped\n' >&2
@@ -44,7 +49,7 @@ done
 note "bash: ${#bash_files[@]} file(s) parsed"
 
 # --- powershell --------------------------------------------------------------
-ps_files=(powershell/*.ps1)
+ps_files=(powershell/*.ps1 powershell/*.ps1.example)
 if ! command -v pwsh > /dev/null 2>&1; then
   printf 'check-syntax: pwsh is not installed, so %s PowerShell file(s) CANNOT be checked.\n' "${#ps_files[@]}" >&2
   fail=1

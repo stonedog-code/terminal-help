@@ -1,6 +1,10 @@
 #!/usr/bin/env zsh
 # 🐍 Python — the toolchain is uv. Do not use pip, venv or pyenv here.
 
+th_register       get_python_info   "🐍 Python — with the two below"
+th_register_child get_uv_info       "📦 uv: projects, dependencies, venvs"
+th_register_child get_uvicorn_info  "⚡ uvicorn and FastAPI launch lines"
+
 get_python_info() {
     th_head "🐍" "Python"
     th_row "Install Python:"     "brew install python@3.13      (macOS)"

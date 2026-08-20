@@ -158,14 +158,17 @@ install_runtime() {
     fi
 
     [ -L "$TH_INSTALL_DIR" ] && rm -f "$TH_INSTALL_DIR"
-    mkdir -p "$TH_INSTALL_DIR/lib"
-    # Replace lib/ wholesale so a section deleted upstream does not linger.
-    rm -f "$TH_INSTALL_DIR"/lib/*.zsh 2>/dev/null || true
-    cp "$TH_DIR/terminal-help.zsh" "$TH_INSTALL_DIR/"
-    cp "$TH_DIR"/lib/*.zsh          "$TH_INSTALL_DIR/lib/"
-    cp "$TH_DIR/VERSION"            "$TH_INSTALL_DIR/"
-    cp "$TH_DIR/zshrc-user.sh.example" "$TH_INSTALL_DIR/"
-    ok "installed the runtime to $TH_INSTALL_DIR ($(ls "$TH_INSTALL_DIR"/lib/*.zsh | wc -l | tr -d ' ') sections)"
+    mkdir -p "$TH_INSTALL_DIR/lib" "$TH_INSTALL_DIR/help"
+    # Replaced wholesale so a file deleted upstream does not linger. Only ever
+    # these two directories — the user's help directory is somewhere else
+    # entirely, precisely so that this line can be this blunt.
+    rm -f "$TH_INSTALL_DIR"/lib/*.zsh "$TH_INSTALL_DIR"/help/*.help.sh 2>/dev/null || true
+    cp "$TH_DIR/terminal-help.zsh"      "$TH_INSTALL_DIR/"
+    cp "$TH_DIR"/lib/*.zsh              "$TH_INSTALL_DIR/lib/"
+    cp "$TH_DIR"/help/*.help.sh         "$TH_INSTALL_DIR/help/"
+    cp "$TH_DIR/VERSION"                "$TH_INSTALL_DIR/"
+    cp "$TH_DIR/zshrc-user.sh.example"  "$TH_INSTALL_DIR/"
+    ok "installed the runtime to $TH_INSTALL_DIR ($(ls "$TH_INSTALL_DIR"/help/*.help.sh | wc -l | tr -d ' ') help files)"
     note "your ~/.zshrc will reference \$HOME, so it works on any machine"
 }
 
@@ -247,6 +250,50 @@ USERFILE
     note "it is yours from here on — this installer never reads or writes it again"
 }
 
+# ~/.zshrc-help.d — where the user's own help files go. Created once, then
+# never touched: it is content, like the settings file, not program files.
+ensure_help_dir() {
+    local dir="$1"
+    if [ -d "$dir" ]; then
+        ok "$(basename "$dir")/ already exists — ignored, it is yours ($(ls "$dir"/*.help.sh 2>/dev/null | wc -l | tr -d ' ') help file(s))"
+        return 0
+    fi
+    mkdir -p "$dir"
+    # Named .txt on purpose: only *.help.sh is loaded, so the example sits
+    # there as documentation without becoming a section nobody asked for.
+    cat > "$dir/README.txt" <<'HELPDOC'
+Your own help sections go here.
+
+Any file named *.help.sh in this directory is sourced on every new shell, and
+this directory is never touched by a terminal-help upgrade.
+
+  ~/.zshrc-help.d/docker.help.sh
+  ------------------------------
+  th_register get_docker_info "🐳 Docker: build, run, compose"
+
+  get_docker_info() {
+      th_head "🐳" "Docker"
+      th_row  "Build:"   "docker build -t {name} ."
+      th_note "--platform linux/amd64 when the target is not an M-series Mac"
+      th_sub  "🧩" "Compose"
+      th_row  "Up:"      "docker compose up -d"
+  }
+
+Then `get_docker_info` prints it, and `get_help` lists it under 🧩 Yours.
+
+The th_register line is optional — a file that only defines get_*_info
+functions is still found and listed, by its filename. Registering just gives
+the row a better description.
+
+Helpers available: th_head, th_sub, th_row, th_note, th_text, th_warn, th_ok.
+
+Reusing a built-in name (a git.help.sh defining get_git_info) OVERRIDES the
+built-in rather than duplicating it — yours is loaded second and wins.
+HELPDOC
+    ok "created $(basename "$dir")/ for your own help files"
+    note "drop a *.help.sh in it — see $dir/README.txt"
+}
+
 install_zsh_target() {
     local label="$1" emoji="$2"
     head_ "$emoji  $label"
@@ -277,7 +324,7 @@ install_zsh_target() {
             rm -rf "$TH_INSTALL_DIR"
             ok "removed the installed runtime at $TH_INSTALL_DIR"
         fi
-        note "$user_file was left alone — it is yours"
+        note "$user_file and $home_dir/.zshrc-help.d were left alone — they are yours"
         return 0
     fi
 
@@ -295,6 +342,7 @@ install_zsh_target() {
     rc_block >> "$rc"
     ok "added the terminal-help block to $rc"
     ensure_user_file "$user_file"
+    ensure_help_dir "$home_dir/.zshrc-help.d"
     note "open a new terminal, or run: source $rc"
 }
 

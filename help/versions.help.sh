@@ -1,6 +1,8 @@
 #!/usr/bin/env zsh
 # 📋 versions — what is actually installed on this machine.
 
+th_register get_versions     "📋 what is installed on this machine"
+
 get_versions() {
     th_head "📋" "Versions"
     local os

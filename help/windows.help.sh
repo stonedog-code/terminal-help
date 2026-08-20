@@ -1,6 +1,8 @@
 #!/usr/bin/env zsh
 # 🪟 Windows — PowerShell, winget, WSL, and getting zsh onto the machine.
 
+th_register get_windows_info "🪟 Windows: PowerShell, winget, WSL, zsh"
+
 get_windows_info() {
     th_head "🪟" "Windows and PowerShell"
     th_sub "🐚" "Two ways to get zsh on Windows"
