@@ -1,6 +1,8 @@
 #!/usr/bin/env zsh
 # 🐧 Linux — installing zsh, package managers, services, ports.
 
+th_register get_linux_info   "🐧 Linux: installing zsh, packages, services"
+
 get_linux_info() {
     th_head "🐧" "Linux"
     th_sub "🐚" "Install zsh and make it the default"

@@ -109,7 +109,15 @@ function Show-TerminalHelp {
     Write-ThRow 'get_mac_info'      '🍎 macOS: brew, shares, Finder'
     Write-ThRow 'get_linux_info'    '🐧 Linux: installing zsh, packages, services'
     Write-Host ''
+    Show-UserHelpSections
     Show-UserHelp
+}
+
+# Sections that came from the user's own help directory.
+function Show-UserHelpSections {
+    if ($script:ThUserOrder.Count -eq 0) { return }
+    Write-ThSub '🧩' "Yours (from $(Split-Path $script:ThUserHelpDir -Leaf))"
+    foreach ($fn in $script:ThUserOrder) { Write-ThRow $fn $script:ThUserSections[$fn] }
 }
 
 function Show-UserHelp {
@@ -347,6 +355,50 @@ Set-Alias -Name get_uvicorn_info      -Value Show-UvicornInfo    -Scope Global -
 Set-Alias -Name get_windows_info      -Value Show-WindowsInfo    -Scope Global -Force
 Set-Alias -Name get_mac_info          -Value Show-MacInfo        -Scope Global -Force
 Set-Alias -Name get_linux_info        -Value Show-LinuxInfo      -Scope Global -Force
+
+# --- your own help files ---------------------------------------------------
+# Drop a *.help.ps1 file into profile-help.d beside your $PROFILE and it is
+# loaded on every shell. The directory is yours: the installer creates it and
+# never touches it again, so an upgrade cannot disturb what you put there.
+#
+# Dot-sourced at SCRIPT scope for the same reason as the settings file: `.`
+# loads into the current scope, so doing this inside a function would trap the
+# user's own functions there.
+$script:ThUserHelpDir = if ($env:TH_USER_HELP_DIR) {
+    $env:TH_USER_HELP_DIR
+} elseif ($PROFILE) {
+    Join-Path (Split-Path $PROFILE -Parent) 'profile-help.d'
+} else {
+    Join-Path $script:ThHome 'profile-help.d'
+}
+
+$script:ThUserSections = @{}     # function name -> description
+$script:ThUserOrder    = @()
+
+function Register-ThSection([string]$Function, [string]$Description) {
+    if (-not $script:ThUserSections.ContainsKey($Function)) { $script:ThUserOrder += $Function }
+    $script:ThUserSections[$Function] = $Description
+}
+Set-Alias -Name th_register -Value Register-ThSection -Scope Global -Force
+
+if (Test-Path $script:ThUserHelpDir) {
+    foreach ($f in (Get-ChildItem -Path $script:ThUserHelpDir -Filter '*.help.ps1' -File | Sort-Object Name)) {
+        $before = @(Get-Command -CommandType Function -Name 'Show-*' -ErrorAction SilentlyContinue | ForEach-Object Name)
+        . $f.FullName
+        # A file that never calls th_register is still found, by diffing the
+        # Show-* functions across the load — same rule as the zsh edition.
+        foreach ($fn in @(Get-Command -CommandType Function -Name 'Show-*' -ErrorAction SilentlyContinue | ForEach-Object Name)) {
+            if ($before -notcontains $fn) {
+                if (-not $script:ThUserSections.ContainsKey($fn)) {
+                    Register-ThSection $fn "📄 $($f.Name)"
+                }
+                # No auto-generated snake_case alias: mangling Show-DockerInfo
+                # into a get_* name produced garbage, and PowerShell users type
+                # the PowerShell name. Add your own Set-Alias if you want one.
+            }
+        }
+    }
+}
 
 # --- the private half ------------------------------------------------------
 # Your own settings live next to your $PROFILE as profile-user.ps1 — outside
