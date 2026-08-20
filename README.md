@@ -65,6 +65,7 @@ Non-interactive, for a setup script:
 
 ```sh
 ./install.sh --targets mac,linux,windows --yes
+./install.sh --reset                  # choose topics again on an existing install
 ./install.sh --uninstall              # removes the block and ~/.terminal-help
 ```
 
@@ -144,6 +145,21 @@ upstream does not linger. **`~/.zshrc-user.sh` is
 never touched by an upgrade** — not read, not parsed, not merged, not backed
 up, not even opened. The installer creates it once, if it is missing, and after
 that has no business with it.
+
+**Your topic selection is kept too**, and this is what makes the line above
+honest. An upgrade re-reads `~/.terminal-help/selected` and installs exactly
+those topics again — it does not fall back to the default and quietly narrow
+what loads. The topic menu appears on a **first** install, or when you ask for
+it:
+
+```sh
+./install.sh --reset          # choose topics again, discarding the current set
+./install.sh --topics git,mac # or say them outright, no menu
+```
+
+A topic that has been deleted or renamed upstream cannot be kept, so it is
+dropped from your selection and **named** while it happens — "your selection
+was kept" must never quietly mean "kept, minus one".
 
 **On Windows, install inside WSL.** terminal-help is a zsh tool; there is no
 PowerShell edition to install. `get_powershell_help` gives you the PowerShell
@@ -396,6 +412,9 @@ common technologies.
 matters six months later: `th_topics enable mac` turns one on in a second, with
 no clone, no network, and no reinstall — the usual way that goes wrong is a tool
 that only copied what you asked for and then needs the original download back.
+
+**You are asked once.** Re-running the installer keeps whatever you picked;
+`--reset` is how you get the menu back.
 
 ```
 th_topics                    # what exists, ✅ selected, ⬜ idle

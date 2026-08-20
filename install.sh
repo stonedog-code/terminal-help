@@ -99,7 +99,7 @@ HOME_DIR="${ZDOTDIR:-$HOME}"
 USER_FILE="$HOME_DIR/.zshrc-user.sh"
 USER_HELP_DIR="$HOME_DIR/.zshrc-help.d"
 
-ASSUME_YES=0; UNINSTALL=0; LINK=0; WANT_ALL=0; TOPICS_ARG=""
+ASSUME_YES=0; UNINSTALL=0; LINK=0; WANT_ALL=0; TOPICS_ARG=""; WANT_RESET=0
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
     C_T=$'\033[38;5;39m'; C_L=$'\033[38;5;252m'; C_N=$'\033[38;5;244m'
@@ -170,14 +170,19 @@ usage() {
     cat <<USAGE
 terminal-help v$VERSION installer
 
-  --topics a,b,c   install with these topics selected (default: ask)
+  --topics a,b,c   install with these topics selected
   --all            select every topic
+  --reset          choose topics again, discarding the current selection
   --yes            accept defaults, ask nothing
   --link           symlink the clone instead of copying (for working ON this)
   --uninstall      remove the block and ~/.terminal-help
   --help           this message
 
 Topics are discovered from help/*/*.help.sh — the same list the menu shows.
+
+Re-running this is an UPGRADE: an existing selection is kept and only the
+runtime is refreshed. The topic menu appears on a first install, or with
+--reset. th_topics changes the selection later without the clone.
 USAGE
 }
 
@@ -186,6 +191,7 @@ while [ $# -gt 0 ]; do
         --topics) TOPICS_ARG="$2"; shift 2 ;;
         --topics=*) TOPICS_ARG="${1#*=}"; shift ;;
         --all) WANT_ALL=1; shift ;;
+        --reset) WANT_RESET=1; shift ;;
         --yes|-y) ASSUME_YES=1; shift ;;
         --link) LINK=1; shift ;;
         --uninstall) UNINSTALL=1; shift ;;
@@ -219,6 +225,45 @@ catalogue() {  # topic<TAB>emoji<TAB>category<TAB>description
         cat_dir=$(dirname "$f"); cat_name=$(basename "$cat_dir")
         printf '%s\t%s\t%s\t%s\n' "$name" "$emoji" "$cat_name" "$desc"
     done < <(topic_files)
+}
+
+# What a previous install chose, filtered to topics that still exist.
+#
+# RE-RUNNING THE INSTALLER IS AN UPGRADE, AND AN UPGRADE MUST NOT NARROW WHAT
+# LOADS. Before this existed, `./install.sh --yes` — the command the README
+# gives as the upgrade — fell through to the default (platform + git + python)
+# because choose_topics never read the manifest, so nine selected topics
+# silently became three. The README promised the opposite two lines above the
+# command: "leaves everything else alone".
+existing_selection() {
+    local manifest avail line t
+    manifest="$TH_INSTALL_DIR/selected"
+    [ -r "$manifest" ] || return 0
+    avail=$(catalogue | cut -f1)
+    while IFS= read -r line; do
+        case "$line" in ''|\#*) continue ;; esac
+        for t in $avail; do
+            if [ "$t" = "$line" ]; then printf '%s\n' "$line"; break; fi
+        done
+    done < "$manifest"
+}
+
+# Entries in the manifest that no longer name a topic — a file deleted or
+# renamed upstream. Reported rather than dropped in silence, because "your
+# selection was kept" must not quietly mean "kept, minus one".
+dropped_selection() {
+    local manifest avail line t found
+    manifest="$TH_INSTALL_DIR/selected"
+    [ -r "$manifest" ] || return 0
+    avail=$(catalogue | cut -f1)
+    while IFS= read -r line; do
+        case "$line" in ''|\#*) continue ;; esac
+        found=0
+        for t in $avail; do
+            if [ "$t" = "$line" ]; then found=1; break; fi
+        done
+        [ "$found" -eq 0 ] && printf '%s\n' "$line"
+    done < "$manifest"
 }
 
 detect_platform() {
@@ -482,12 +527,22 @@ if ! command -v zsh >/dev/null 2>&1; then
 fi
 
 SELECTED=()
+KEPT_EXISTING=0
 if [ "$WANT_ALL" -eq 1 ]; then
     while IFS=$'\t' read -r n _ _ _; do SELECTED+=("$n"); done < <(catalogue)
 elif [ -n "$TOPICS_ARG" ]; then
     for t in $(printf '%s' "$TOPICS_ARG" | tr ',' ' '); do SELECTED+=("$t"); done
 else
-    while IFS= read -r t; do [ -n "$t" ] && SELECTED+=("$t"); done < <(choose_topics)
+    # An existing selection wins over the default, unless --reset. This is what
+    # makes a re-run an upgrade rather than a re-decision.
+    if [ "$WANT_RESET" -eq 0 ]; then
+        while IFS= read -r t; do [ -n "$t" ] && SELECTED+=("$t"); done < <(existing_selection)
+    fi
+    if [ "${#SELECTED[@]}" -gt 0 ]; then
+        KEPT_EXISTING=1
+    else
+        while IFS= read -r t; do [ -n "$t" ] && SELECTED+=("$t"); done < <(choose_topics)
+    fi
 fi
 
 if [ "${#SELECTED[@]}" -eq 0 ]; then
@@ -495,9 +550,22 @@ if [ "${#SELECTED[@]}" -eq 0 ]; then
     exit 0
 fi
 
-if [ "$WANT_ALL" -eq 1 ] || [ -n "$TOPICS_ARG" ]; then
+# choose_topics prints the header itself; every other path has to.
+if [ "$WANT_ALL" -eq 1 ] || [ -n "$TOPICS_ARG" ] || [ "$KEPT_EXISTING" -eq 1 ]; then
     head_ "🧰 terminal-help v$VERSION"
     identity
+fi
+
+if [ "$KEPT_EXISTING" -eq 1 ]; then
+    head_ "🗂 Topics"
+    ok "kept your selection of ${#SELECTED[@]}: ${SELECTED[*]}"
+    note "this is an upgrade — the runtime is refreshed, the selection is not touched"
+    note "choose again with: ./install.sh --reset    ·    one at a time: th_topics"
+    gone=$(dropped_selection | tr '\n' ' ')
+    if [ -n "$gone" ]; then
+        warn "no longer in the package, so dropped: $gone"
+        note "a topic file was deleted or renamed upstream"
+    fi
 fi
 
 head_ "🐚 zsh"
