@@ -578,6 +578,12 @@ Run against a real zsh 5.9, not eyeballed:
   aliases surviving, an **old rc block with no `th_source_user` line**, and
   `TH_QUIET`. `--self-check` plants the regression and requires the suite to
   catch it — with the fallback removed, 2 of the 10 fail, which is the point.
+- **macOS's bash, without a Mac** — `scripts/test-macos-bash.sh` runs the
+  installer under the official `bash:3.2` image (what macOS ships, frozen in
+  2007): 18 assertions covering parsing, a full install, the files it writes,
+  the truncation guard, and a scan for bash complaining about *anything*.
+  `bash -n` here is bash 5 and passes `${var^^}` and associative arrays that
+  3.2 rejects at runtime — proved by planting one and watching this catch it.
 - **The gate** — `bash scripts/check-syntax.sh`: 15 files, exit 0, and proved
   non-vacuous by planting a syntax error in a help file and watching it fail.
 - **Colour, in four directions** — present on a tty; absent when piped, under

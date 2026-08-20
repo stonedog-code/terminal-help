@@ -38,6 +38,30 @@ ok()    { printf '  %s✓  %s%s\n' "$C_OK" "$*" "$C_R"; }
 warn()  { printf '  %s⚠  %s%s\n' "$C_W" "$*" "$C_R"; }
 note()  { printf '  %s↳  %s%s\n' "$C_N" "$*" "$C_R"; }
 
+# --- am I whole? -----------------------------------------------------------
+# Reading this script from a network share can hand bash a PARTIAL file: it
+# runs everything it received and then dies at EOF inside an unterminated
+# string, AFTER doing the work. That is not a hypothetical — it happened on an
+# SMB-mounted clone and produced
+#
+#     ./install.sh: line 371: unexpected EOF while looking for matching `"'
+#
+# which reads as a bug in the installer rather than as a half-copied file. The
+# last line of this file is a sentinel; if it is not there, we are a fragment.
+if [ "$(tail -n 1 "$0" 2>/dev/null)" != "# END-OF-INSTALLER" ]; then
+    printf '\n  ⚠  This copy of install.sh is TRUNCATED — it is missing its end.\n' >&2
+    printf '     You are running a partial file, so it would do part of the job\n' >&2
+    printf '     and then fail with an "unexpected EOF" that is not its fault.\n\n' >&2
+    printf '     Lines here: %s\n' "$(wc -l < "$0" | tr -d ' ')" >&2
+    printf '     Most likely: the clone is on a network share and was read while\n' >&2
+    printf '     it was being written, or the share served a stale cached copy.\n\n' >&2
+    printf '     Fix it with one of:\n' >&2
+    printf '       git -C "%s" checkout -- install.sh\n' "$(dirname "$0")" >&2
+    printf '       cp -f <a local clone>/install.sh "%s"/\n' "$(dirname "$0")" >&2
+    printf '     or clone to local disk and run it from there.\n\n' >&2
+    exit 1
+fi
+
 usage() {
     cat <<USAGE
 terminal-help v$VERSION installer
@@ -383,3 +407,4 @@ ok "added the terminal-help block to $rc"
 head_ "🏁 Done"
 ok "terminal-help v$VERSION installed"
 note "open a new shell, then type: get_help"
+# END-OF-INSTALLER
