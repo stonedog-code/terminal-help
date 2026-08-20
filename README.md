@@ -8,7 +8,7 @@ It runs on **macOS**, **Linux** (zsh) and **Windows** (PowerShell), and it
 prints exactly one line when a shell starts:
 
 ```
-🧰 terminal-help v0.6.0 · get_help
+🧰 terminal-help v0.7.0 · get_help
 ```
 
 Everything host-specific — your servers, your shares, your aliases — lives in
@@ -34,7 +34,7 @@ cd ~/src/terminal-help
 ```
 
 ```
-🧰 terminal-help v0.6.0
+🧰 terminal-help v0.7.0
   Which shells should it be installed for? Pick as many as apply.
 
     1  🍎  macOS       — adds a source line to ~/.zshrc
@@ -49,6 +49,8 @@ cd ~/src/terminal-help
 Pick `1`, `2`, `3`, any combination (`1,3`), or `4` for all three. The
 installer:
 
+- **copies the runtime into `~/.terminal-help`** and points `~/.zshrc` at
+  `$HOME`, never at the clone — see below;
 - **asks before touching your `~/.zshrc`.** Decline and nothing is written —
   it prints the block for you to paste and stops;
 - adds **one marked block** to the `~/.zshrc` or `$PROFILE` you already have —
@@ -63,10 +65,36 @@ Non-interactive, for a setup script:
 
 ```sh
 ./install.sh --targets mac,linux,windows --yes
-./install.sh --uninstall              # removes the block, keeps the clone
+./install.sh --uninstall              # removes the block and ~/.terminal-help
 ```
 
 Then open a new terminal and type `get_help`.
+
+### Where things end up
+
+| Path | What it is | Touched by an upgrade? |
+|---|---|---|
+| `~/.zshrc` | the marked block, ~10 lines | rewritten, nothing else |
+| `~/.zshrc-user.sh` | **yours** — aliases, exports, hooks | **never** |
+| `~/.terminal-help/` | the runtime: `terminal-help.zsh`, `lib/*.zsh`, `VERSION` | replaced |
+| the clone | source. Needed to install and to upgrade, and at no other time | — |
+
+**The installer copies; it does not point at the clone.** That matters more than
+it sounds: a clone lives in `~/src`, or on a network share, or in `/tmp`, and
+none of those paths exist on the next machine. A `~/.zshrc` naming one is a
+`~/.zshrc` that fails on every other machine — and it fails *badly*, because
+when the `source` line dies, `th_source_user` is never defined and **your own
+settings file silently never loads either**. Referencing `$HOME` cannot go wrong
+that way. You can delete the clone after installing and everything keeps
+working.
+
+Even so, the block is written to survive a missing runtime: if
+`~/.terminal-help` is gone, it loads `~/.zshrc-user.sh` directly, so your
+aliases outlive the help.
+
+**Working on terminal-help itself?** `./install.sh --link` symlinks the clone
+instead of copying it, so edits are live. Only do that on a machine where the
+clone is permanent.
 
 ### Upgrading
 
@@ -74,8 +102,10 @@ Then open a new terminal and type `get_help`.
 cd ~/src/terminal-help && git pull && ./install.sh --yes
 ```
 
-Re-running the installer is how you pick up a new version: it refreshes its own
-block in your rc file and leaves everything else alone. **`~/.zshrc-user.sh` is
+Re-running the installer is how you pick up a new version: it re-copies the
+runtime into `~/.terminal-help`, refreshes its own block in your rc file, and
+leaves everything else alone. `lib/` is replaced wholesale, so a section deleted
+upstream does not linger. **`~/.zshrc-user.sh` is
 never touched by an upgrade** — not read, not parsed, not merged, not backed
 up, not even opened. The installer creates it once, if it is missing, and after
 that has no business with it.
@@ -256,7 +286,7 @@ the source line and it is read from there instead.
 
 | | |
 |---|---|
-| On every new shell | one line: `🧰 terminal-help v0.6.0 · get_help` |
+| On every new shell | one line: `🧰 terminal-help v0.7.0 · get_help` |
 | Plus | whatever *your* `user_on_load` chooses to print — nothing, by default |
 | Everything else | only when you ask for it by name |
 
@@ -331,7 +361,7 @@ terminal-help/
 │   ├── install.ps1            adds the block to $PROFILE
 │   └── profile-user.ps1.example   a worked example of ~/…/profile-user.ps1
 ├── zshrc-user.sh.example      a worked example of ~/.zshrc-user.sh
-├── install.sh                 the multi-select installer
+├── install.sh                 the multi-select installer (copies to ~/.terminal-help)
 ├── .zshrc                     an example ~/.zshrc, if you would rather symlink one
 ├── VERSION
 └── LICENSE
@@ -378,6 +408,10 @@ Run against real interpreters, not eyeballed:
   Both editions.
 - **Declining the prompt** — `~/.zshrc` byte-identical afterwards, no settings
   file created, no backup left behind.
+- **Installed, then the clone deleted** — the decisive test for v0.7.0. After
+  `rm -rf` on the source clone, a real zsh and a real `pwsh` both still print
+  the version line, load `~/.zshrc-user.sh`, run `user_on_load`, and render
+  `get_user_info`. Nothing outside `$HOME` is referenced at runtime.
 - **Both live rc paths** — a real interactive zsh started through the installed
   block, and through the symlinked `.zshrc`, with hooks, aliases and
   `user_on_load` all working. Same for a real `pwsh` session through the

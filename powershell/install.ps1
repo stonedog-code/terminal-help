@@ -17,6 +17,9 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $ThHome    = Split-Path $PSScriptRoot -Parent
+# Where the runtime is INSTALLED. Not the clone: $PROFILE must not name a path
+# that exists only on the machine the install was run from.
+$InstallDir = if ($env:TH_INSTALL_DIR) { $env:TH_INSTALL_DIR } else { Join-Path $HOME '.terminal-help' }
 $Version   = if (Test-Path "$ThHome\VERSION") { (Get-Content "$ThHome\VERSION" -Raw).Trim() } else { 'unknown' }
 $BeginMark = '# >>> terminal-help >>>'
 $EndMark   = '# <<< terminal-help <<<'
@@ -64,7 +67,7 @@ $block = @(
     '# Put YOUR PowerShell settings in profile-user.ps1 beside this file —'
     '# aliases, functions, and the Show-UserInfo / Invoke-UserOnLoad hooks.'
     '# NOT here: everything between these markers is rewritten by the installer.'
-    "`$env:TH_HOME = `"$ThHome`""
+    '$env:TH_HOME = Join-Path $HOME ".terminal-help"'
     '. "$env:TH_HOME\powershell\TerminalHelp.ps1"   # the help, then your profile-user.ps1'
     $EndMark
 )
@@ -73,6 +76,10 @@ if ($Uninstall) {
     if (Test-Path $profilePath) {
         Remove-ThBlock $profilePath
         Ok "removed the terminal-help block from $profilePath"
+    }
+    if (Test-Path $InstallDir) {
+        Remove-Item $InstallDir -Recurse -Force
+        Ok "removed the installed runtime at $InstallDir"
     }
     Note "$userFile was left alone — it is yours"
     Head '🏁 Done'
@@ -90,6 +97,14 @@ if (-not (Confirm-Change "Update $profilePath so terminal-help loads in every Po
     Head '🏁 Done'
     return
 }
+
+# Program files only — the user's profile-user.ps1 is never in here.
+New-Item -ItemType Directory -Path (Join-Path $InstallDir 'powershell') -Force | Out-Null
+Copy-Item (Join-Path $ThHome 'powershell\TerminalHelp.ps1')         (Join-Path $InstallDir 'powershell') -Force
+Copy-Item (Join-Path $ThHome 'powershell\profile-user.ps1.example') (Join-Path $InstallDir 'powershell') -Force
+Copy-Item (Join-Path $ThHome 'VERSION')                             $InstallDir -Force
+Ok "installed the runtime to $InstallDir"
+Note 'your $PROFILE will reference $HOME, so it works on any machine'
 
 if (-not (Test-Path $profileDir))  { New-Item -ItemType Directory -Path $profileDir -Force | Out-Null }
 if (-not (Test-Path $profilePath)) { New-Item -ItemType File -Path $profilePath -Force | Out-Null }
