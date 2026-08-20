@@ -167,14 +167,36 @@ th_doctor() {
 
     th_sub "🗂" "Topics"
     local manifest="${TH_SELECTED:-$TH_HOME/selected}"
-    th_row "Loaded in THIS shell:" "${(j:, :)TH_TOPIC_ORDER}"
+    # Split the loaded topics: the manifest is a statement about PACKAGE topics
+    # only, so mixing yours into the comparison below compares two different
+    # sets and calls the difference drift.
+    local -a loaded_pkg loaded_user
+    local t
+    for t in ${TH_TOPIC_ORDER}; do
+        if [[ ${TH_TOPIC_CATEGORY[$t]} == user ]]; then
+            loaded_user+=("$t")
+        else
+            loaded_pkg+=("$t")
+        fi
+    done
+    th_row "Loaded in THIS shell:" "${(j:, :)loaded_pkg}"
+    if (( ${#loaded_user} )); then
+        th_row "Yours, always on:" "${(j:, :)loaded_user}"
+        th_note "your own topics are never in the manifest — they load from"
+        th_note "${TH_USER_HELP_DIR/#$HOME/~} on every shell, selected or not"
+    fi
     th_row "Manifest on disk:" "$manifest"
     if [[ -r $manifest ]]; then
         local -a on_disk
         on_disk=(${(f)"$(th_selected_topics)"})
         th_row "It selects:" "${(j:, :)${(o)on_disk}}"
         # Running the installer does not change the shell you ran it from.
-        if [[ "${(j: :)${(o)on_disk}}" != "${(j: :)${(o)TH_TOPIC_ORDER}}" ]]; then
+        #
+        # PACKAGE topics only. th_available_topics skips help/user, so the
+        # manifest can never list a topic of yours — comparing it against every
+        # loaded topic meant one *.help.sh of your own made this warn on every
+        # shell, and the reload it advises could never clear it.
+        if [[ "${(j: :)${(o)on_disk}}" != "${(j: :)${(o)loaded_pkg}}" ]]; then
             th_warn "this shell was started before the manifest last changed"
             th_text "open a new shell (or: source ~/.zshrc) to pick it up"
         fi

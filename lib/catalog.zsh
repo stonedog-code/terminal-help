@@ -60,7 +60,16 @@ get_help_topics() {
         th_sub "🧩" "Yours (${#user_cmds})"
         for fn in ${user_cmds}; do
             topic=${owner[$fn]:-}
-            th_row "$fn" "${TH_TOPIC_EMOJI[$topic]} ${TH_TOPIC_DESC[$topic]}"
+            # TH_ALSO first, exactly as above: a sub-section of your own carries
+            # its own emoji and description, and without this it was listed
+            # under its parent topic's — so get_pgbouncer_help read as
+            # "Prisma — migrations, drift, schema paths", which is the parent's
+            # line repeated rather than anything about pgBouncer.
+            if [[ -n ${TH_ALSO_DESC[$fn]} ]]; then
+                th_row "$fn" "${TH_ALSO_DESC[$fn]}"
+            else
+                th_row "$fn" "${TH_TOPIC_EMOJI[$topic]} ${TH_TOPIC_DESC[$topic]}"
+            fi
         done
     fi
 

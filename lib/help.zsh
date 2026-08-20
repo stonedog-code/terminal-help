@@ -51,9 +51,18 @@ _th_user_topics_section() {
     done
     (( ${#mine} )) || return 0
     th_sub "🧩" "Yours (from ${TH_USER_HELP_DIR/#$HOME/~})"
+    local fn
     for topic in ${mine}; do
         th_row "get_${topic}_help" "${TH_TOPIC_EMOJI[$topic]} ${TH_TOPIC_DESC[$topic]}"
+        # TH_ALSO works in a file of yours exactly as it does in a packaged one,
+        # so list the sub-sections here too. Omitting them made a command that
+        # exists and prints — get_pgbouncer_help — absent from the index that
+        # is supposed to name it.
+        for fn in ${TH_ALSO_ORDER}; do
+            [[ ${TH_ALSO_PARENT[$fn]} == $topic ]] && th_defined "$fn" && th_row "  $fn" "${TH_ALSO_DESC[$fn]}"
+        done
     done
+    return 0
 }
 
 # The private half. What appears here depends on what user.sh actually
