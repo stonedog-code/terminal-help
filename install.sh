@@ -172,7 +172,16 @@ install_runtime() {
     cp "$TH_DIR/terminal-help.zsh"     "$TH_INSTALL_DIR/"
     cp "$TH_DIR"/lib/*.zsh             "$TH_INSTALL_DIR/lib/"
     cp "$TH_DIR/VERSION"               "$TH_INSTALL_DIR/"
-    ok "installed $(topic_files | wc -l | tr -d ' ') topics to ${TH_INSTALL_DIR/#$HOME/~}"
+    # Computed into variables on purpose: bash 3.2 (macOS) mis-parses a single
+    # quote inside $( ) inside a double-quoted string — it reads the quote as
+    # the outer string's and dies with "unexpected EOF while looking for
+    # matching". The script still RAN, then failed to parse its own last line,
+    # which is a confusing way to end a successful install.
+    local n_topics pretty
+    n_topics=$(topic_files | wc -l)
+    n_topics=${n_topics// /}
+    pretty=${TH_INSTALL_DIR/#$HOME/\~}
+    ok "installed $n_topics topics to $pretty"
     note "every topic is installed; the manifest below decides which ones load"
 }
 
@@ -235,10 +244,14 @@ HELPERS: th_head, th_sub, th_row, th_note, th_text, th_warn, th_ok.
 CONTRIBUTING SOMETHING BACK: scripts/promote-extensions.sh in the clone
 collects your extensions into a report you can fold into the package by hand.
 HELPDOC
-        ok "created ${USER_HELP_DIR/#$HOME/~}/ for your own help files"
+        local pretty_help=${USER_HELP_DIR/#$HOME/\~}
+        ok "created $pretty_help/ for your own help files"
         note "a topic of your own, or an extension to a built-in — see README.txt"
     else
-        ok "${USER_HELP_DIR##*/}/ already exists — ignored, it is yours ($(find "$USER_HELP_DIR" -name '*.help.sh' 2>/dev/null | wc -l | tr -d ' ') file(s))"
+        local n_help
+        n_help=$(find "$USER_HELP_DIR" -name "*.help.sh" 2>/dev/null | wc -l)
+        n_help=${n_help// /}
+        ok "${USER_HELP_DIR##*/}/ already exists — ignored, it is yours ($n_help file(s))"
     fi
 
     if [ "$LINK" -eq 0 ]; then
@@ -319,7 +332,8 @@ if [ "$UNINSTALL" -eq 1 ]; then
     ok "removed the terminal-help block from $rc"
     if [ -e "$TH_INSTALL_DIR" ]; then
         rm -rf "$TH_INSTALL_DIR"        # help/user is a symlink: the target survives
-        ok "removed the installed runtime at ${TH_INSTALL_DIR/#$HOME/~}"
+        local pretty_dir=${TH_INSTALL_DIR/#$HOME/\~}
+        ok "removed the installed runtime at $pretty_dir"
     fi
     note "$USER_FILE and $USER_HELP_DIR were left alone — they are yours"
     head_ "🏁 Done"

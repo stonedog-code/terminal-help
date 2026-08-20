@@ -17,7 +17,7 @@
 
 set -uo pipefail
 
-TH_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+TH_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 USER_HELP_DIR="${TH_USER_HELP_DIR:-${ZDOTDIR:-$HOME}/.zshrc-help.d}"
 EXT_DIR="$USER_HELP_DIR/extensions"
 OUT="$TH_DIR/PROMOTIONS.md"
@@ -51,11 +51,11 @@ render() {
     echo
     local f topic base extends
     for f in "${files[@]}"; do
-        topic="$(basename "$f" .help.sh)"
+        topic=$(basename "$f" .help.sh)
         # A file may extend a topic whose name differs from its filename.
-        extends="$(grep -oE '^[[:space:]]*th_extend[[:space:]]+[a-z0-9_]+' "$f" | awk '{print $2}' | sort -u | tr '\n' ' ')"
+        extends=$(grep -oE '^[[:space:]]*th_extend[[:space:]]+[a-z0-9_]+' "$f" | awk '{print $2}' | sort -u | tr '\n' ' ')
         [ -n "$extends" ] && topic="${extends%% *}"
-        base="$(base_file_for "$topic")"
+        base=$(base_file_for "$topic")
 
         echo "## \`$topic\` — from \`${f/#$HOME/\~}\`"
         echo

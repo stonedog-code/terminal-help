@@ -23,7 +23,7 @@
 
 set -uo pipefail
 
-REPO="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 SELF_CHECK=0
 [ "${1:-}" = "--self-check" ] && SELF_CHECK=1
 
@@ -41,7 +41,7 @@ if ! command -v zsh > /dev/null 2>&1; then
   exit 1
 fi
 
-TMP="$(mktemp -d)"
+TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 H="$TMP/home"; mkdir -p "$H"
 
@@ -91,7 +91,7 @@ if [ "$SELF_CHECK" -eq 1 ]; then
 fi
 
 # --- 1. the exact thing the user typed ------------------------------------
-out="$(run_zsh --source-only)"
+out=$(run_zsh --source-only)
 if [ "$(count "$out" "$MARKER top-level")" -ge 1 ]; then
   ok "source ~/.zshrc printed a top-level line from ~/.zshrc-user.sh"
 else
@@ -104,17 +104,17 @@ fi
   && ok "the version line still prints" || bad "the version line is missing"
 
 # --- 2. a real interactive shell ------------------------------------------
-out="$(run_zsh)"
+out=$(run_zsh)
 [ "$(count "$out" "$MARKER top-level")" -ge 1 ] \
   && ok "an interactive zsh printed it too" || bad "an interactive zsh printed nothing"
 
 # --- 3. exactly once ------------------------------------------------------
-n="$(count "$out" "$MARKER top-level")"
+n=$(count "$out" "$MARKER top-level")
 [ "$n" -eq 1 ] && ok "loaded exactly once (not double-sourced)" \
                || bad "loaded $n times — the file is being sourced more than once"
 
 # --- 4. the definitions survive -------------------------------------------
-out="$(HOME="$H" ZDOTDIR="$H" zsh -i -c "${MARKER}_fn; alias ${MARKER}_alias" 2>&1)"
+out=$(HOME="$H" ZDOTDIR="$H" zsh -i -c "${MARKER}_fn; alias ${MARKER}_alias" 2>&1)
 [ "$(count "$out" "$MARKER from a function")" -ge 1 ] \
   && ok "a function defined in the settings file is callable" || bad "the function is not defined"
 [ "$(count "$out" "${MARKER}_alias")" -ge 1 ] \
@@ -129,7 +129,7 @@ export TH_HOME="\$HOME/.terminal-help"
 source "\$TH_HOME/terminal-help.zsh"
 # <<< terminal-help <<<
 EOF
-out="$(run_zsh --source-only)"
+out=$(run_zsh --source-only)
 if [ "$(count "$out" "$MARKER top-level")" -ge 1 ]; then
   ok "an OLD block with no th_source_user line still loads your file"
 else
@@ -144,7 +144,7 @@ print "$MARKER top-level"
 user_on_load() { print "$MARKER from user_on_load" }
 false
 EOF
-out="$(run_zsh)"
+out=$(run_zsh)
 if [ "$(count "$out" "STOPPED EARLY")" -eq 0 ]; then
   ok "a failing last command does not produce a scary 'stopped early' warning"
 else
@@ -160,17 +160,17 @@ print "$MARKER top-level"
 private file, so it can be as specific as you like.
 ${MARKER}_below() { print "should not exist" }
 EOF
-out="$(run_zsh)"
+out=$(run_zsh)
 [ "$(count "$out" "STOPPED EARLY")" -ge 1 ] \
   && ok "a real abort IS reported" || bad "a real abort was not reported"
-out="$(HOME="$H" ZDOTDIR="$H" zsh -i -c "whence -w ${MARKER}_below" 2>&1)"
+out=$(HOME="$H" ZDOTDIR="$H" zsh -i -c "whence -w ${MARKER}_below" 2>&1)
 [ "$(count "$out" "function")" -eq 0 ] \
   && ok "...and what was below the failing line is indeed missing" \
   || bad "the abort test is not actually aborting"
 write_user_file   # restore for the checks below
 
 # --- 7. quiet mode loads settings, it only silences the banner ------------
-out="$(HOME="$H" ZDOTDIR="$H" TH_QUIET=1 zsh -i -c 'print DONE' 2>&1)"
+out=$(HOME="$H" ZDOTDIR="$H" TH_QUIET=1 zsh -i -c 'print DONE' 2>&1)
 [ "$(count "$out" "$MARKER top-level")" -ge 1 ] \
   && ok "TH_QUIET=1 still loads your settings" || bad "TH_QUIET=1 skipped your settings"
 [ "$(count "$out" "🧰 terminal-help")" -eq 0 ] \
