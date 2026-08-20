@@ -40,6 +40,7 @@ source "$TH_HOME/lib/topics.zsh"
 source "$TH_HOME/lib/help.zsh"
 source "$TH_HOME/lib/versions.zsh"
 source "$TH_HOME/lib/doctor.zsh"
+source "$TH_HOME/lib/catalog.zsh"
 
 # Everything is installed; the manifest decides what LOADS. That is what makes
 # `th_topics enable mac` work months later on a machine where the clone this
