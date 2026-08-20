@@ -32,9 +32,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # zsh is NOT preinstalled on ubuntu-latest; pwsh is. check-syntax.sh
-      # treats a missing parser as a failure rather than a skip, so forgetting
-      # this step turns the gate red instead of quietly halving its coverage.
+      # zsh is NOT preinstalled on ubuntu-latest. check-syntax.sh treats a
+      # missing parser as a failure rather than a skip, so forgetting this step
+      # turns the gate red instead of quietly halving its coverage.
+      #
+      # (This comment used to add "pwsh is" — true, but irrelevant since the
+      # PowerShell runtime was dropped and PowerShell became a help topic
+      # checked as zsh like everything else.)
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y zsh
 

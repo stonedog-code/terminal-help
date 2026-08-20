@@ -1,0 +1,38 @@
+ % ./install.sh                                
+
+🧰 terminal-help v0.14.0
+  Which topics do you want help for? Everything is installed either
+  way — this chooses what loads, and you can change it later with
+  th_topics, with no clone needed.
+
+     1  🐧  linux        linux: Linux — installing zsh, packages, services, ports
+     2  🍺  homebrew     mac: Homebrew — installing, upgrading, and the bits that bite
+     3  🍎  mac          mac: macOS — keys, the default shell, Finder, Homebrew
+     4  🔷  powershell   powershell: PowerShell — profile, execution policy, cmdlets, winget
+     5  🤖  claude       technologies: Claude Code — CLAUDE.md, settings, and the CLI
+     6  🧑‍✈️  copilot      technologies: GitHub Copilot — instructions files, the CLI, chat in the editor
+     7  🌿  git          technologies: git — everyday commands, branches, worktrees, pull requests
+     8  🐍  python       technologies: Python — uv, virtualenvs, uvicorn
+     9  🪟  windows      windows: Windows — winget, WSL, and getting zsh onto the machine
+
+  ↳  detected platform: mac
+  Numbers (comma or space separated), "a" for all [mac git python]: 1,2,3,5,6,7,8
+
+🐚 zsh
+  ✓  zsh is your login shell
+  Update /Users/jstone/.zshrc so terminal-help loads in every shell? [Y/n]: 
+
+  ✓  installed 9 topics to \~/.terminal-help
+  ↳  every topic is installed; the manifest below decides which ones load
+  ✓  selected: linux homebrew mac claude copilot git python
+  ↳  change it any time with th_topics — the clone is not needed again
+  ✓  .zshrc-user.sh already exists — ignored, it is yours
+  ✓  .zshrc-help.d/ already exists — ignored, it is yours (0 file(s))
+  ↳  backed up .zshrc to .zshrc.terminal-help.bak
+  ✓  added the terminal-help block to /Users/jstone/.zshrc
+
+🏁 Done
+  ✓  terminal-help v0.14.0 installed
+  ↳  open a new shell, then type: get_help
+jstone@LMACHC6CVXVX3X terminal-help % source ~/.zshrc
+🧰 terminal-help v0.14.0 · get_help
