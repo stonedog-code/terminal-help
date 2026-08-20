@@ -8,7 +8,7 @@ It runs in **zsh** — macOS, Linux, WSL — and prints exactly one line when a
 shell starts:
 
 ```
-🧰 terminal-help v0.11.0 · get_help
+🧰 terminal-help v0.12.0 · get_help
 ```
 
 Everything host-specific — your servers, your shares, your aliases — lives in
@@ -34,7 +34,7 @@ cd ~/src/terminal-help
 ```
 
 ```
-🧰 terminal-help v0.11.0
+🧰 terminal-help v0.12.0
   Which shells should it be installed for? Pick as many as apply.
 
     1  🍎  macOS       — adds a source line to ~/.zshrc
@@ -264,7 +264,7 @@ the source line and it is read from there instead.
 
 | | |
 |---|---|
-| On every new shell | one line: `🧰 terminal-help v0.11.0 · get_help` |
+| On every new shell | one line: `🧰 terminal-help v0.12.0 · get_help` |
 | Plus | whatever *your* `user_on_load` chooses to print — nothing, by default |
 | Everything else | only when you ask for it by name |
 
@@ -277,7 +277,8 @@ Silence even the version line with `TH_QUIET=1` (put it in `~/.zshenv`, or
 
 | Command | |
 |---|---|
-| `get_help` | ❓ the index (alias: `help_me`) |
+| `get_help` | ❓ the curated index (alias: `help_me`) |
+| `get_help_topics` | 📋 every help command that exists, plus how to drive terminal-help |
 | `get_versions` | 📋 OS, shell, python, uv, git, gh, node, brew |
 | `th_topics` | 🗂 what is selected, and turn topics on or off |
 | `th_doctor` | 🩺 why isn't my help — or my settings file — loading? |
@@ -421,6 +422,36 @@ data inside a directory something `rm -rf`s is one wrong glob away from being
 deleted. So the path is real and the bytes are not in it: `help/user` points at
 `~/.zshrc-help.d`, and `rm -rf` deletes a symlink rather than following it.
 Both paths work; only one of them can ever be in the blast radius.
+
+## 📋 `get_help_topics` — the complete list
+
+`get_help` is the curated index: topics in a deliberate order, with their
+sub-sections. `get_help_topics` is the flat one, **discovered at runtime** —
+every `get_*_help` function actually defined in this shell, wherever it came
+from:
+
+```
+  📦 From terminal-help (8)
+  get_git_help             🌿 git — everyday commands, branches, worktrees, PRs
+                           ↳ extended by one of your own files
+  ...
+  🧩 Yours (1)
+  get_deploy_help          🚀 our deploy runbook
+
+  ⬜ Installed but switched off (6)
+  get_mac_help             th_topics enable mac
+```
+
+Discovered rather than listed, because a hardcoded list is wrong the moment
+somebody drops a file into `~/.zshrc-help.d` — which is the entire point of
+that directory. It also names the commands you *cannot* call yet, rather than
+leaving them out of a list that claims to be complete.
+
+It ends with **how to drive terminal-help itself**: the five commands, where
+every file lives and who owns it, the three-line header that makes a topic of
+your own, the `th_extend` shape for extending a built-in, the helper functions
+you can call, and how to upgrade, re-select topics, contribute back and remove
+it.
 
 ## 🩺 When something of yours does not run
 

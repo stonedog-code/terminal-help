@@ -7,10 +7,11 @@ get_help() {
     th_text "type its name to print it."
     print -r --
 
-    th_row "get_help"     "❓ this list"
-    th_row "get_versions" "📋 what is installed on this machine"
-    th_row "th_topics"    "🗂 turn help topics on and off"
-    th_row "th_doctor"    "🩺 why isn't my help or my settings file loading?"
+    th_row "get_help"        "❓ this list"
+    th_row "get_help_topics" "📋 every help command, and how to drive this tool"
+    th_row "get_versions"    "🖥  what is installed on this machine"
+    th_row "th_topics"       "🗂 turn help topics on and off"
+    th_row "th_doctor"       "🩺 why isn't my help or my settings file loading?"
     print -r --
 
     local topic fn
@@ -36,13 +37,13 @@ get_help() {
         th_note "turn one on with: th_topics enable <topic>"
     fi
 
-    get_user_help_sections
+    _th_user_topics_section
     print -r --
-    get_user_help
+    _th_user_settings_section
 }
 
 # Topics that came from the user's own help directory.
-get_user_help_sections() {
+_th_user_topics_section() {
     local -a mine
     local topic
     for topic in ${TH_TOPIC_ORDER}; do
@@ -58,7 +59,7 @@ get_user_help_sections() {
 # The private half. What appears here depends on what user.sh actually
 # DEFINES — not on whether the file exists, since install.sh always creates it
 # and creates it empty.
-get_user_help() {
+_th_user_settings_section() {
     if [[ -z $TH_USER_SOURCED ]]; then
         th_sub "🔒" "Yours (not loaded)"
         th_text "terminal-help is loaded but your settings file is not — nothing"
