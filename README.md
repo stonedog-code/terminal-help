@@ -8,7 +8,7 @@ It runs in **zsh** — macOS, Linux, WSL — and prints exactly one line when a
 shell starts:
 
 ```
-🧰 terminal-help v0.9.0 · get_help
+🧰 terminal-help v0.10.0 · get_help
 ```
 
 Everything host-specific — your servers, your shares, your aliases — lives in
@@ -34,7 +34,7 @@ cd ~/src/terminal-help
 ```
 
 ```
-🧰 terminal-help v0.9.0
+🧰 terminal-help v0.10.0
   Which shells should it be installed for? Pick as many as apply.
 
     1  🍎  macOS       — adds a source line to ~/.zshrc
@@ -264,7 +264,7 @@ the source line and it is read from there instead.
 
 | | |
 |---|---|
-| On every new shell | one line: `🧰 terminal-help v0.9.0 · get_help` |
+| On every new shell | one line: `🧰 terminal-help v0.10.0 · get_help` |
 | Plus | whatever *your* `user_on_load` chooses to print — nothing, by default |
 | Everything else | only when you ask for it by name |
 
@@ -280,6 +280,7 @@ Silence even the version line with `TH_QUIET=1` (put it in `~/.zshenv`, or
 | `get_help` | ❓ the index (alias: `help_me`) |
 | `get_versions` | 📋 OS, shell, python, uv, git, gh, node, brew |
 | `th_topics` | 🗂 what is selected, and turn topics on or off |
+| `th_doctor` | 🩺 why isn't my help — or my settings file — loading? |
 | `get_git_help` | 🌿 git — with the three below |
 | `get_git_branch_help` | 🌱 branch naming, Conventional Commits |
 | `get_git_worktree_help` | 🌳 worktrees, and the six rules that make them work |
@@ -416,6 +417,39 @@ data inside a directory something `rm -rf`s is one wrong glob away from being
 deleted. So the path is real and the bytes are not in it: `help/user` points at
 `~/.zshrc-help.d`, and `rm -rf` deletes a symlink rather than following it.
 Both paths work; only one of them can ever be in the blast radius.
+
+## 🩺 When something of yours does not run
+
+```
+th_doctor
+```
+
+It checks the install, the block in `~/.zshrc`, your settings file and your help
+files, and prints **what it examined** rather than a verdict.
+
+The failure it exists for is worth knowing about, because it is silent and it
+has bitten:
+
+> A settings file was copied out of the example, and the `#` markers on the
+> commentary were lost along the way — leaving prose at the start of a line.
+> One of those lines began with the word **`private`**, which zsh has as a
+> builtin. A builtin misused at file scope does not merely print an error: it
+> **aborts the rest of the file**. Every function below it — and the calls that
+> were supposed to print at startup — silently never existed. The one error
+> line had scrolled away hours earlier.
+
+So `th_source_user` now checks what `source` returned and says
+*"stopped early — everything below the failing line was not loaded"*, and
+`th_doctor` finds the line, `zsh -n`s every file you own, and flags any line
+that looks like prose without a `#`.
+
+To see the first error yourself, in isolation:
+
+```sh
+zsh -f -c 'source ~/.zshrc-user.sh'
+```
+
+The first error is where it stopped.
 
 ## 📤 Contributing an extension back
 

@@ -38,6 +38,7 @@ source "$TH_HOME/lib/ui.zsh"
 source "$TH_HOME/lib/topics.zsh"
 source "$TH_HOME/lib/help.zsh"
 source "$TH_HOME/lib/versions.zsh"
+source "$TH_HOME/lib/doctor.zsh"
 
 # Everything is installed; the manifest decides what LOADS. That is what makes
 # `th_topics enable mac` work months later on a machine where the clone this
@@ -97,8 +98,19 @@ TH_USER_FILE="${TH_USER_FILE:-${ZDOTDIR:-$HOME}/.zshrc-user.sh}"
 th_source_user() {
     [[ -n $TH_USER_SOURCED ]] && return 0      # idempotent: never load twice
 
-    [[ -r "$TH_USER_FILE" ]] && source "$TH_USER_FILE"
+    # A zsh error mid-file ABORTS the rest of it: everything below the bad line
+    # is never defined and never runs, and the only clue is one error line that
+    # scrolls away. `source` reports it, so check.
+    TH_USER_STATUS=0
+    if [[ -r "$TH_USER_FILE" ]]; then
+        source "$TH_USER_FILE" || TH_USER_STATUS=$?
+    fi
     TH_USER_SOURCED=1
+
+    if (( TH_USER_STATUS )); then
+        th_warn "${TH_USER_FILE:t} stopped early (exit $TH_USER_STATUS) — everything"
+        th_text "below the failing line was not loaded. Run: th_doctor"
+    fi
 
     [[ -z $TH_QUIET ]] && th_defined user_on_load && user_on_load
     return 0

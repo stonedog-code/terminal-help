@@ -1,0 +1,131 @@
+#!/usr/bin/env zsh
+# 🩺 th_doctor — why isn't my help (or my settings file) doing anything?
+#
+# Written after a real case: a settings file whose comment markers were lost
+# when it was copied, leaving prose at the start of a line. One of those lines
+# began with the word `private`, which zsh has as a BUILTIN, and a builtin used
+# wrongly at file scope aborts the rest of the file. Everything below it — the
+# functions, the calls that print at startup — silently never existed. The one
+# error line had long scrolled past.
+#
+# Every check prints what it examined, not just a verdict.
+
+th_doctor() {
+    th_head "🩺" "terminal-help doctor"
+
+    local rc="${ZDOTDIR:-$HOME}/.zshrc"
+    local user_file="${TH_USER_FILE:-${ZDOTDIR:-$HOME}/.zshrc-user.sh}"
+    local help_dir="${TH_USER_HELP_DIR:-${ZDOTDIR:-$HOME}/.zshrc-help.d}"
+    local problems=0
+
+    th_sub "📦" "The install"
+    th_row "Version:"   "v${TH_VERSION:-unknown}"
+    th_row "TH_HOME:"   "${TH_HOME:-<unset>}"
+    if [[ -r "$TH_HOME/terminal-help.zsh" ]]; then
+        th_ok "the runtime is where \$TH_HOME says it is"
+    else
+        th_warn "no runtime at \$TH_HOME — re-run install.sh from the clone"
+        (( problems++ ))
+    fi
+    if grep -q '>>> terminal-help >>>' "$rc" 2>/dev/null; then
+        th_ok "${rc:t} has the terminal-help block"
+        local blockhome=$(grep -m1 'TH_HOME=' "$rc" 2>/dev/null)
+        [[ $blockhome == *'$HOME'* ]] || {
+            th_warn "the block hardcodes a path instead of \$HOME:"
+            th_text "  $blockhome"
+            th_text "  that path exists on one machine only — re-run install.sh"
+            (( problems++ ))
+        }
+    else
+        th_warn "${rc:t} has no terminal-help block — re-run install.sh"
+        (( problems++ ))
+    fi
+
+    th_sub "🔒" "Your settings file"
+    th_row "Path:" "$user_file"
+    if [[ ! -e $user_file ]]; then
+        th_warn "does not exist — nothing of yours can load"
+        (( problems++ ))
+    elif [[ ! -r $user_file ]]; then
+        th_warn "exists but is not readable (mode $(stat -f %Lp "$user_file" 2>/dev/null || stat -c %a "$user_file" 2>/dev/null))"
+        (( problems++ ))
+    else
+        th_row "Size:" "$(wc -l < "$user_file" | tr -d ' ') lines"
+        # zsh -n is the honest check: it parses without running anything.
+        local errs
+        if errs=$(zsh -n "$user_file" 2>&1); then
+            th_ok "it parses"
+        else
+            th_warn "it does NOT parse:"
+            th_text "  ${errs}"
+            (( problems++ ))
+        fi
+        if [[ -n $TH_USER_SOURCED ]]; then
+            if (( ${TH_USER_STATUS:-0} )); then
+                th_warn "it was loaded but STOPPED EARLY (exit $TH_USER_STATUS)"
+                th_text "everything below the failing line never ran. Start a shell with"
+                th_text "  zsh -f -c 'source $user_file'"
+                th_text "and read the first error: that line is where it stopped."
+                (( problems++ ))
+            else
+                th_ok "it loaded cleanly"
+            fi
+        else
+            th_warn "it was never loaded — nothing called th_source_user"
+            (( problems++ ))
+        fi
+        th_row "Defines:" "$(_th_doctor_defined get_user_info user_on_load)"
+    fi
+
+    # The most common cause after a copy-paste: prose at the start of a line.
+    # A comment marker is one character, and losing it turns documentation into
+    # commands — or, worse, into a builtin like `private` that stops the file.
+    if [[ -r $user_file ]]; then
+        local -a suspects
+        suspects=(${(f)"$(grep -nE '^[[:space:]]*(private|local|typeset|declare|readonly|export)[[:space:]]+[a-zA-Z]+,' "$user_file" 2>/dev/null)"})
+        suspects+=(${(f)"$(grep -nE '^[[:space:]]*(-{3,}|[^[:alnum:][:space:]#_$"'"'"'({\[/.!*@-][^=]*)$' "$user_file" 2>/dev/null | head -5)"})
+        if (( ${#suspects} )); then
+            th_sub "✂️" "Lines that look like prose without a leading #"
+            local l
+            for l in ${suspects}; do [[ -n $l ]] && th_text "  $l"; done
+            th_text "A comment needs its '#'. A line starting with a word zsh knows as"
+            th_text "a builtin (private, local, typeset) does not merely error — it"
+            th_text "ABORTS the file, so nothing below it is defined."
+            (( problems++ ))
+        fi
+    fi
+
+    th_sub "🧩" "Your help files"
+    th_row "Directory:" "$help_dir"
+    if [[ -d $help_dir ]]; then
+        th_row "Files:" "$(print -l -- $help_dir/**/*.help.sh(N) | grep -c . ) *.help.sh"
+        local f bad=0
+        for f in $help_dir/**/*.help.sh(N); do
+            zsh -n "$f" 2>/dev/null || { th_warn "does not parse: ${f/#$HOME/~}"; bad=1; (( problems++ )) }
+        done
+        (( bad )) || th_ok "all of them parse"
+    else
+        th_text "not created yet — install.sh makes it"
+    fi
+
+    th_sub "🗂" "Topics"
+    th_row "Selected:" "${(j:, :)TH_TOPIC_ORDER}"
+    th_row "Manifest:" "${TH_SELECTED:-$TH_HOME/selected}"
+    (( ${#TH_ORPHAN_EXTENSIONS} )) && {
+        th_warn "extensions for topics that are not loaded: ${(j:, :)${(u)TH_ORPHAN_EXTENSIONS}}"
+        th_text "turn one on with: th_topics enable <topic>"
+    }
+
+    print -r --
+    if (( problems )); then
+        th_warn "$problems problem(s) above."
+    else
+        th_ok "no problems found."
+    fi
+}
+
+_th_doctor_defined() {
+    local fn out=()
+    for fn in "$@"; do th_defined "$fn" && out+=("$fn"); done
+    (( ${#out} )) && print -r -- "${(j:, :)out}" || print -r -- "none of get_user_info, user_on_load"
+}
