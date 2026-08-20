@@ -20,8 +20,9 @@
 
 set -uo pipefail
 
-TH_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+TH_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 TH_SOURCE_DIR="${TH_SOURCE_DIR:-$TH_DIR}"
+_th_self=$(basename "${BASH_SOURCE[0]}")
 
 # --- relaunch from local disk ----------------------------------------------
 # bash reads a script INCREMENTALLY as it runs it. On a network share — SMB,
@@ -50,8 +51,8 @@ if [ -z "${TH_LOCAL_COPY:-}" ] && [ "${TH_NO_RELAUNCH:-0}" != "1" ]; then
         # happens to sit beside it. Otherwise running a renamed or partial copy
         # silently gets the intact original substituted underneath you, and the
         # truncation check has nothing left to catch.
-        cp "$TH_DIR/$(basename "${BASH_SOURCE[0]}")" "$_th_tmp/install.sh" 2>/dev/null \
-            || _th_missing="$_th_missing $(basename "${BASH_SOURCE[0]}")"
+        cp "$TH_DIR/$_th_self" "$_th_tmp/install.sh" 2>/dev/null \
+            || _th_missing="$_th_missing $_th_self"
         for _th_item in VERSION terminal-help.zsh lib help; do
             cp -R "$TH_DIR/$_th_item" "$_th_tmp/" 2>/dev/null || _th_missing="$_th_missing $_th_item"
         done
@@ -62,7 +63,8 @@ if [ -z "${TH_LOCAL_COPY:-}" ] && [ "${TH_NO_RELAUNCH:-0}" != "1" ]; then
         # Whole? The sentinel is the last line, and bash must accept the file.
         # A short read fails one or both, and retrying often gets a good copy
         # because the second read comes from a settled cache.
-        if [ "$(tail -n 1 "$_th_tmp/install.sh" 2>/dev/null)" = "# END-OF-INSTALLER" ] \
+        _th_tail=$(tail -n 1 "$_th_tmp/install.sh" 2>/dev/null)
+        if [ "$_th_tail" = "# END-OF-INSTALLER" ] \
            && bash -n "$_th_tmp/install.sh" 2>/dev/null; then
             _th_copy_ok=1
             break
@@ -88,7 +90,7 @@ fi
 # The relaunched copy owns the temp directory and removes it however it exits.
 [ -n "${TH_TMP_DIR:-}" ] && trap 'rm -rf "$TH_TMP_DIR"' EXIT
 
-VERSION="$(cat "$TH_DIR/VERSION" 2>/dev/null || echo unknown)"
+VERSION=$(cat "$TH_DIR/VERSION" 2>/dev/null || echo unknown)
 BEGIN_MARK="# >>> terminal-help >>>"
 END_MARK="# <<< terminal-help <<<"
 
@@ -119,19 +121,49 @@ note()  { printf '  %s↳  %s%s\n' "$C_N" "$*" "$C_R"; }
 #
 # which reads as a bug in the installer rather than as a half-copied file. The
 # last line of this file is a sentinel; if it is not there, we are a fragment.
-if [ "$(tail -n 1 "$0" 2>/dev/null)" != "# END-OF-INSTALLER" ]; then
+_th_last_line=$(tail -n 1 "$0" 2>/dev/null)
+if [ "$_th_last_line" != "# END-OF-INSTALLER" ]; then
     printf '\n  ⚠  This copy of install.sh is TRUNCATED — it is missing its end.\n' >&2
     printf '     You are running a partial file, so it would do part of the job\n' >&2
     printf '     and then fail with an "unexpected EOF" that is not its fault.\n\n' >&2
-    printf '     Lines here: %s\n' "$(wc -l < "$0" | tr -d ' ')" >&2
+    _th_lines=$(wc -l < "$0"); _th_lines=${_th_lines// /}
+    printf '     Lines here: %s\n' "$_th_lines" >&2
     printf '     Most likely: the clone is on a network share and was read while\n' >&2
     printf '     it was being written, or the share served a stale cached copy.\n\n' >&2
     printf '     Fix it with one of:\n' >&2
-    printf '       git -C "%s" checkout -- install.sh\n' "$(dirname "$0")" >&2
-    printf '       cp -f <a local clone>/install.sh "%s"/\n' "$(dirname "$0")" >&2
+    _th_here=$(dirname "$0")
+    printf '       git -C "%s" checkout -- install.sh\n' "$_th_here" >&2
+    printf '       cp -f <a local clone>/install.sh "%s"/\n' "$_th_here" >&2
     printf '     or clone to local disk and run it from there.\n\n' >&2
     exit 1
 fi
+
+# Which file is this, really?
+#
+# Three reports in a row have been traced to a stale or partial install.sh
+# while the banner read a fresh VERSION — because VERSION is a SEPARATE FILE.
+# A version number identifies the release; it does not identify the bytes being
+# executed. This does: line count, where it came from, and the git state of
+# that clone if it is one. Paste it and there is nothing left to guess.
+identity() {
+    local lines src desc dirty behind
+    lines=$(wc -l < "$0"); lines=${lines// /}
+    src=$TH_SOURCE_DIR
+    printf '  %sinstall.sh: %s lines · %s%s\n' "$C_N" "$lines" "$src" "$C_R"
+    if command -v git > /dev/null 2>&1 && git -C "$src" rev-parse --git-dir > /dev/null 2>&1; then
+        desc=$(git -C "$src" rev-parse --short HEAD 2>/dev/null)
+        git -C "$src" diff --quiet -- install.sh 2>/dev/null || dirty=" · install.sh MODIFIED locally"
+        behind=$(git -C "$src" rev-list --count HEAD..origin/main 2>/dev/null)
+        case "$behind" in
+            ''|0) behind="" ;;
+            *)    behind=" · $behind commit(s) behind origin/main as last fetched" ;;
+        esac
+        printf '  %sgit %s%s%s%s\n' "$C_N" "$desc" "$dirty" "$behind" "$C_R"
+        if [ -n "$behind" ]; then
+            warn "this clone is behind — git pull before reporting anything"
+        fi
+    fi
+}
 
 usage() {
     cat <<USAGE
@@ -177,12 +209,14 @@ header_field() { sed -n "1,20{s/^# $2:[[:space:]]*//p;}" "$1" | head -n1; }
 topic_files() { find "$TH_DIR/help" -mindepth 2 -name '*.help.sh' -not -path '*/user/*' | sort; }
 
 catalogue() {  # topic<TAB>emoji<TAB>category<TAB>description
-    local f name
+    local f name emoji desc cat_dir cat_name
     while IFS= read -r f; do
-        name="$(header_field "$f" TH_TOPIC)"
+        name=$(header_field "$f" TH_TOPIC)
         [ -n "$name" ] || continue
-        printf '%s\t%s\t%s\t%s\n' "$name" "$(header_field "$f" TH_EMOJI)" \
-            "$(basename "$(dirname "$f")")" "$(header_field "$f" TH_DESC)"
+        emoji=$(header_field "$f" TH_EMOJI)
+        desc=$(header_field "$f" TH_DESC)
+        cat_dir=$(dirname "$f"); cat_name=$(basename "$cat_dir")
+        printf '%s\t%s\t%s\t%s\n' "$name" "$emoji" "$cat_name" "$desc"
     done < <(topic_files)
 }
 
@@ -211,6 +245,7 @@ choose_topics() {  # everything here goes to stderr; only the list is stdout
 
     {
         head_ "🧰 terminal-help v$VERSION"
+        identity
         say "  Which topics do you want help for? Everything is installed either"
         say "  way — this chooses what loads, and you can change it later with"
         say "  ${C_B}th_topics${C_R}, with no clone needed."
@@ -358,7 +393,8 @@ HELPDOC
 
 ensure_user_file() {
     if [ -e "$USER_FILE" ]; then
-        ok "$(basename "$USER_FILE") already exists — ignored, it is yours"
+        local base_user=$(basename "$USER_FILE")
+        ok "$base_user already exists — ignored, it is yours"
         return 0
     fi
     cat > "$USER_FILE" <<'USERFILE'
@@ -386,7 +422,8 @@ ensure_user_file() {
 # separate example file to copy from and get out of step with.
 USERFILE
     chmod 600 "$USER_FILE" 2>/dev/null || true
-    ok "created $(basename "$USER_FILE") (mode 600)"
+    local base_user=$(basename "$USER_FILE")
+    ok "created $base_user (mode 600)"
 }
 
 rc_block() {
@@ -415,7 +452,8 @@ strip_block() {
         awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
             index($0, b) { skip=1 } !skip { print } index($0, e) { skip=0 }
         ' "$file.terminal-help.bak" > "$file"
-        note "backed up $(basename "$file") to $(basename "$file").terminal-help.bak"
+        local base_rc=$(basename "$file")
+        note "backed up $base_rc to $base_rc.terminal-help.bak"
     fi
 }
 
@@ -424,6 +462,7 @@ rc="$HOME_DIR/.zshrc"
 
 if [ "$UNINSTALL" -eq 1 ]; then
     head_ "🧰 terminal-help v$VERSION"
+    identity
     strip_block "$rc"
     ok "removed the terminal-help block from $rc"
     if [ -e "$TH_INSTALL_DIR" ]; then
@@ -453,6 +492,11 @@ fi
 if [ "${#SELECTED[@]}" -eq 0 ]; then
     warn "no topics selected — nothing to do."
     exit 0
+fi
+
+if [ "$WANT_ALL" -eq 1 ] || [ -n "$TOPICS_ARG" ]; then
+    head_ "🧰 terminal-help v$VERSION"
+    identity
 fi
 
 head_ "🐚 zsh"
