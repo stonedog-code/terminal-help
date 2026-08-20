@@ -172,7 +172,7 @@ install_runtime() {
     cp "$TH_DIR/terminal-help.zsh"     "$TH_INSTALL_DIR/"
     cp "$TH_DIR"/lib/*.zsh             "$TH_INSTALL_DIR/lib/"
     cp "$TH_DIR/VERSION"               "$TH_INSTALL_DIR/"
-    ok "installed $(topic_files | wc -l | tr -d ' ') topics to ${TH_INSTALL_DIR/#$HOME/\~}"
+    ok "installed $(topic_files | wc -l | tr -d ' ') topics to ${TH_INSTALL_DIR/#$HOME/~}"
     note "every topic is installed; the manifest below decides which ones load"
 }
 
@@ -235,7 +235,7 @@ HELPERS: th_head, th_sub, th_row, th_note, th_text, th_warn, th_ok.
 CONTRIBUTING SOMETHING BACK: scripts/promote-extensions.sh in the clone
 collects your extensions into a report you can fold into the package by hand.
 HELPDOC
-        ok "created ${USER_HELP_DIR/#$HOME/\~}/ for your own help files"
+        ok "created ${USER_HELP_DIR/#$HOME/~}/ for your own help files"
         note "a topic of your own, or an extension to a built-in — see README.txt"
     else
         ok "${USER_HELP_DIR##*/}/ already exists — ignored, it is yours ($(find "$USER_HELP_DIR" -name '*.help.sh' 2>/dev/null | wc -l | tr -d ' ') file(s))"
@@ -319,7 +319,7 @@ if [ "$UNINSTALL" -eq 1 ]; then
     ok "removed the terminal-help block from $rc"
     if [ -e "$TH_INSTALL_DIR" ]; then
         rm -rf "$TH_INSTALL_DIR"        # help/user is a symlink: the target survives
-        ok "removed the installed runtime at ${TH_INSTALL_DIR/#$HOME/\~}"
+        ok "removed the installed runtime at ${TH_INSTALL_DIR/#$HOME/~}"
     fi
     note "$USER_FILE and $USER_HELP_DIR were left alone — they are yours"
     head_ "🏁 Done"
