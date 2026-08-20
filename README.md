@@ -8,7 +8,7 @@ It runs in **zsh** — macOS, Linux, WSL — and prints exactly one line when a
 shell starts:
 
 ```
-🧰 terminal-help v0.12.0 · get_help
+🧰 terminal-help v0.13.0 · get_help
 ```
 
 Everything host-specific — your servers, your shares, your aliases — lives in
@@ -34,7 +34,7 @@ cd ~/src/terminal-help
 ```
 
 ```
-🧰 terminal-help v0.12.0
+🧰 terminal-help v0.13.0
   Which shells should it be installed for? Pick as many as apply.
 
     1  🍎  macOS       — adds a source line to ~/.zshrc
@@ -92,6 +92,14 @@ working.
 Even so, the block is written to survive a missing runtime: if
 `~/.terminal-help` is gone, it loads `~/.zshrc-user.sh` directly, so your
 aliases outlive the help.
+
+And the reverse: **the runtime loads your settings file itself if nothing else
+has.** The block calls `th_source_user` by name, because where your settings
+come from should be visible in the file you actually open — but that line is
+not something the tool depends on. A block written by an older installer, or
+edited by hand, would otherwise leave your file unloaded, and the symptom is
+silent and baffling: the version line still prints while nothing of yours does.
+`th_source_user` is idempotent, so the explicit call costs nothing.
 
 **Working on terminal-help itself?** `./install.sh --link` symlinks the clone
 instead of copying it, so edits are live. Only do that on a machine where the
@@ -264,7 +272,7 @@ the source line and it is read from there instead.
 
 | | |
 |---|---|
-| On every new shell | one line: `🧰 terminal-help v0.12.0 · get_help` |
+| On every new shell | one line: `🧰 terminal-help v0.13.0 · get_help` |
 | Plus | whatever *your* `user_on_load` chooses to print — nothing, by default |
 | Everything else | only when you ask for it by name |
 

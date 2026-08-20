@@ -52,8 +52,11 @@ th_doctor() {
     else
         th_row "Size:" "$(wc -l < "$user_file" | tr -d ' ') lines"
         # zsh -n is the honest check: it parses without running anything.
-        local errs
-        if errs=$(zsh -n "$user_file" 2>&1); then
+        local errs zsh_bin
+        zsh_bin=$(whence -p zsh 2>/dev/null)
+        if [[ -z $zsh_bin ]]; then
+            th_text "no zsh on PATH to parse-check with — skipped (not a failure)"
+        elif errs=$($zsh_bin -n "$user_file" 2>&1); then
             th_ok "it parses"
         else
             th_warn "it does NOT parse:"
@@ -101,6 +104,7 @@ th_doctor() {
         th_row "Files:" "$(print -l -- $help_dir/**/*.help.sh(N) | grep -c . ) *.help.sh"
         local f bad=0
         for f in $help_dir/**/*.help.sh(N); do
+            [[ -n $(whence -p zsh) ]] || break
             zsh -n "$f" 2>/dev/null || { th_warn "does not parse: ${f/#$HOME/~}"; bad=1; (( problems++ )) }
         done
         (( bad )) || th_ok "all of them parse"
