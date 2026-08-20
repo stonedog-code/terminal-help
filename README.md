@@ -8,12 +8,13 @@ It runs on **macOS**, **Linux** (zsh) and **Windows** (PowerShell), and it
 prints exactly one line when a shell starts:
 
 ```
-🧰 terminal-help v0.3.0 · get_help
+🧰 terminal-help v0.6.0 · get_help
 ```
 
 Everything host-specific — your servers, your shares, your aliases — lives in
-`user.sh` (or `powershell\user.ps1`), which is **gitignored and never
-committed**. That is what makes the repository publishable.
+`~/.zshrc-user.sh` (or `profile-user.ps1` beside your `$PROFILE`), a file this
+project **creates once and then never opens again**. Nothing personal is in the
+repository, which is what makes it publishable.
 
 ```
   🌳 Worktrees — one feature, one branch, one worktree, one PR
@@ -33,7 +34,7 @@ cd ~/src/terminal-help
 ```
 
 ```
-🧰 terminal-help v0.3.0
+🧰 terminal-help v0.6.0
   Which shells should it be installed for? Pick as many as apply.
 
     1  🍎  macOS       — adds a source line to ~/.zshrc
@@ -48,12 +49,15 @@ cd ~/src/terminal-help
 Pick `1`, `2`, `3`, any combination (`1,3`), or `4` for all three. The
 installer:
 
+- **asks before touching your `~/.zshrc`.** Decline and nothing is written —
+  it prints the block for you to paste and stops;
 - adds **one marked block** to the `~/.zshrc` or `$PROFILE` you already have —
   it never overwrites your config, and re-running replaces its own block
   instead of appending a second one;
 - backs the file up first (`.terminal-help.bak`);
 - tells you if zsh is missing, or is installed but is not your login shell;
-- offers to create your private `user.sh` from the example.
+- **creates `~/.zshrc-user.sh` if it does not exist**, and ignores it entirely
+  if it does. See below — that file is yours.
 
 Non-interactive, for a setup script:
 
@@ -63,6 +67,18 @@ Non-interactive, for a setup script:
 ```
 
 Then open a new terminal and type `get_help`.
+
+### Upgrading
+
+```sh
+cd ~/src/terminal-help && git pull && ./install.sh --yes
+```
+
+Re-running the installer is how you pick up a new version: it refreshes its own
+block in your rc file and leaves everything else alone. **`~/.zshrc-user.sh` is
+never touched by an upgrade** — not read, not parsed, not merged, not backed
+up, not even opened. The installer creates it once, if it is missing, and after
+that has no business with it.
 
 **On Windows, run the PowerShell installer instead** (`install.sh` can only
 reach your `$PROFILE` from WSL, and will print this command if it cannot):
@@ -177,73 +193,70 @@ WSL and `install.ps1` in PowerShell. The command names are identical, so
 
 ---
 
-## 🔒 The private half: `user.sh`
+## 🔒 Your half: `~/.zshrc-user.sh`
 
-The repository contains no hostnames, no usernames and no personal aliases.
-It defines four hook names and calls them if they exist; everything behind
-those hooks is yours and stays on your machine.
+The repository contains no hostnames, no usernames and no personal aliases —
+and neither does the block the installer puts in your `~/.zshrc`. Everything
+that is yours goes in one file beside it:
 
-```sh
-cp user.sh.example user.sh        # gitignored
-chmod 600 user.sh
-$EDITOR user.sh
 ```
+~/.zshrc          the terminal-help block — rewritten by the installer
+~/.zshrc-user.sh  YOURS — aliases, exports, PATH, hooks. Nothing writes here.
+```
+
+`~/.zshrc` sources it on every shell, by name, on its own line, so what loads
+and in what order is visible in the file people actually open:
+
+```zsh
+# >>> terminal-help >>>
+# Put YOUR shell settings in ~/.zshrc-user.sh — aliases, exports, PATH, and
+# the get_user_info / user_on_load hooks. NOT in this file: everything between
+# these two markers is rewritten by terminal-help's installer.
+export TH_HOME="/home/you/src/terminal-help"
+export TH_USER_FILE="${ZDOTDIR:-$HOME}/.zshrc-user.sh"
+source "$TH_HOME/terminal-help.zsh"   # the reference help
+th_source_user                        # your settings, from $TH_USER_FILE
+# <<< terminal-help <<<
+```
+
+**The installer creates that file once and then leaves it alone forever.** It
+is not read, not parsed, not copied, not backed up, not migrated — an upgrade
+cannot lose or reformat something it never opens. It is created with a short
+comment header explaining what it is for, so an otherwise empty file is not a
+mystery; everything below that is yours to write.
+
+Two function names are all terminal-help asks of it, and both are optional:
 
 | Hook | Called when | Typical contents |
 |---|---|---|
-| `connect_work` | you type it | mount a share, open a tunnel, start a VPN |
-| `disconnect_work` | you type it | the reverse |
-| `get_user_info` | you type it | your own reference sections — internal hosts, runbooks |
+| `get_user_info` | you type it | your own reference sections — internal hosts, runbooks, the flag you always forget |
 | `user_on_load` | **every new shell** | the only thing besides the version line that may print |
 
-PowerShell uses the same four under PowerShell names, in
-`powershell\user.ps1`: `Connect-Work`, `Disconnect-Work`, `Show-UserInfo`,
-`Invoke-UserOnLoad`.
+Define neither and the file is still doing its job — aliases, exports and
+functions need no hooks, and `get_help` says so rather than calling the file
+empty.
 
-With no `user.sh`, `connect_work` still exists — it prints how to create one,
-rather than `command not found`, which reads like a broken install.
+`cat zshrc-user.sh.example` in the clone for a worked version of both.
 
-Your sections get the same styling helpers the built-in ones use, so they do
-not look bolted on:
+**PowerShell works the same way**, with the file beside your `$PROFILE` —
+`profile-user.ps1`, resolved from `$PROFILE` rather than hardcoded, so it lands
+in `Documents\PowerShell` on Windows and `~/.config/powershell` on macOS and
+Linux. The hooks there are `Show-UserInfo` and `Invoke-UserOnLoad`.
 
-```zsh
-get_user_info() {
-    th_head "🔒" "My machines"
-    th_row  "Build box:"  "ssh build-01.internal"
-    th_note "the jump host is only reachable on the VPN"
-    th_sub  "🚀" "Deploys"
-    th_row  "Staging:"    "./deploy.sh staging"
-}
-```
+**No secrets in it.** It is private, not encrypted: it sits in your home
+directory in plain text and every backup copies it. Passwords and tokens belong
+in the login keychain, Credential Manager, or a password manager's CLI — read
+them at the moment you need them rather than storing them in a file every shell
+sources.
 
-`th_head`, `th_sub`, `th_row`, `th_note`, `th_text`, `th_warn`, `th_ok` — and
-in PowerShell, `Write-ThHead`, `Write-ThSub`, `Write-ThRow`, `Write-ThNote`,
-`Write-ThText`, `Write-ThWarn`, `Write-ThOk`.
-
-**No passwords in `user.sh`.** macOS keeps share credentials in the login
-keychain and Windows in Credential Manager, both after the first successful
-connection. A password on disk is a plaintext credential with no expiry that
-every backup copies.
-
-Keep `user.sh` somewhere else — outside the clone entirely — by exporting
-`TH_USER_FILE` before the source line, or by putting it at
-`~/.config/terminal-help/user.sh`, which is checked automatically.
-PowerShell uses `$env:TH_USER_FILE` the same way.
-
-**Check what git can see before your first push:**
-
-```sh
-git ls-files | grep user
-# user.sh.example       <- the placeholder, and no bare user.sh. Good.
-```
-
----
+**Keeping it elsewhere:** export `TH_USER_FILE` (or `$env:TH_USER_FILE`) before
+the source line and it is read from there instead.
 
 ## What prints, and when
 
 | | |
 |---|---|
-| On every new shell | one line: `🧰 terminal-help v0.3.0 · get_help` |
+| On every new shell | one line: `🧰 terminal-help v0.6.0 · get_help` |
 | Plus | whatever *your* `user_on_load` chooses to print — nothing, by default |
 | Everything else | only when you ask for it by name |
 
@@ -268,7 +281,7 @@ Silence even the version line with `TH_QUIET=1` (put it in `~/.zshenv`, or
 | `get_mac_info` | 🍎 Homebrew, shares, Finder, clipboard |
 | `get_linux_info` | 🐧 installing zsh, packages, services, ports |
 | `get_windows_info` | 🪟 PowerShell, winget, WSL, zsh on Windows |
-| `get_user_info` | 🔒 yours, from `user.sh` |
+| `get_user_info` | 🔒 yours, from `~/.zshrc-user.sh` |
 
 ---
 
@@ -289,6 +302,9 @@ Then add a row to `get_help` in `lib/help.zsh`. The value of a section is in
 the `↳` notes: anyone can look up `docker build`; what is worth writing down is
 the flag whose absence costs an hour.
 
+One-off personal sections do not need a file in `lib/` at all — define them in
+`~/.zshrc-user.sh` as `get_user_info` and they appear under 🔒 in `get_help`.
+
 For the PowerShell edition, add the same function to
 `powershell\TerminalHelp.ps1` and a `Set-Alias` next to the others. The two
 editions are deliberately separate files — that means content lives twice, and
@@ -300,7 +316,7 @@ a section added to one is missing from the other until you copy it.
 
 ```
 terminal-help/
-├── terminal-help.zsh          the loader — resolves paths, loads lib/, then user.sh
+├── terminal-help.zsh          the loader — resolves paths, loads lib/, defines th_source_user
 ├── lib/
 │   ├── ui.zsh                 colour, emoji and layout helpers; everything else uses them
 │   ├── help.zsh               ❓ the index and the startup banner
@@ -313,8 +329,8 @@ terminal-help/
 ├── powershell/
 │   ├── TerminalHelp.ps1       the PowerShell edition, same commands
 │   ├── install.ps1            adds the block to $PROFILE
-│   └── user.ps1.example       → copy to user.ps1  (gitignored)
-├── user.sh.example            → copy to user.sh   (gitignored)
+│   └── profile-user.ps1.example   a worked example of ~/…/profile-user.ps1
+├── zshrc-user.sh.example      a worked example of ~/.zshrc-user.sh
 ├── install.sh                 the multi-select installer
 ├── .zshrc                     an example ~/.zshrc, if you would rather symlink one
 ├── VERSION
@@ -347,18 +363,59 @@ Run against real interpreters, not eyeballed:
   the first implementation resolved colours inside `$( )`, where stdout is a
   pipe: every colour came back empty and the output looked like a deliberate
   monochrome theme. Checking only that it *rendered* would have missed it.
+- **`install.sh`, interactively, on a pty** — the menu answered with `1`, `4`
+  and an empty line. This is where the first release broke: the menu was
+  written to stdout, which the caller captures, so every word of it came back
+  as a selection (`⚠ unknown target: Which`). Only `--targets` had been
+  exercised, and that path skips the menu entirely — the test was green because
+  it never ran the broken code. The menu now goes to stderr.
 - **`install.sh`** — installs into an existing `~/.zshrc`, a re-run leaves one
   block rather than two, and `--uninstall` restores the original file byte for
   byte (`cmp`, not inspection). Same three for `install.ps1` against a real
   `$PROFILE`.
-- **The private half** — hooks load from `user.sh`/`user.ps1`, `get_help` grows
-  its 🔒 section, and both files are confirmed ignored by git.
+- **The upgrade path** — with a populated `~/.zshrc-user.sh` in place, a re-run
+  leaves its md5 **and its mtime** unchanged and creates no `.bak` beside it.
+  Both editions.
+- **Declining the prompt** — `~/.zshrc` byte-identical afterwards, no settings
+  file created, no backup left behind.
+- **Both live rc paths** — a real interactive zsh started through the installed
+  block, and through the symlinked `.zshrc`, with hooks, aliases and
+  `user_on_load` all working. Same for a real `pwsh` session through the
+  installed `$PROFILE`. That last one caught a scope bug: dot-sourcing the
+  user file *inside a function* traps the user's functions in that function's
+  scope, so they vanish when it returns. PowerShell loads it at script scope
+  now; the comment in `TerminalHelp.ps1` explains why.
+- **The private half** — hooks load from `~/.zshrc-user.sh` /
+  `profile-user.ps1`, `get_help` distinguishes four states (not loaded, empty,
+  content but no hooks, hooks defined), and `th_source_user` is idempotent:
+  called three times, `user_on_load` still runs once.
+- **Nothing shipped is specific to one machine.** The sections describe tools
+  anyone has — git, uv, brew, winget, systemd — not one person's hosts, shares
+  or workflow. Anything that only made sense for one setup was removed rather
+  than genericised into vagueness.
 
 **Not verified:** macOS itself — there is no Mac in the loop, so `mount_smbfs`,
 `diskutil` and `sw_vers` are unexercised; Windows PowerShell 5.1 (7.4 only);
 and emoji rendering in any particular terminal.
 
 ---
+
+## Design notes
+
+**The `~/.zshrc-user.sh` split was reviewed by Gemini before it was built**
+(`ask-gemini --review-plan`), and the review changed the design in five places:
+the `source` line moved into `~/.zshrc` where it is visible rather than staying
+hidden in the loader; the injected block uses `${ZDOTDIR:-$HOME}` instead of a
+hardcoded `$HOME`; the prompt now comes *before* the old block is stripped, so
+declining changes nothing; the PowerShell settings file is resolved from
+`$PROFILE` rather than a hardcoded `Documents\PowerShell`, which would have
+been wrong on macOS and Linux; and the installer stopped short of any file
+migration.
+
+One finding was **rejected**: "never create the settings file empty — copy the
+example into it." A file that every shell sources should not arrive carrying a
+placeholder hostname nobody chose. It is created with a comment header
+explaining what it is for, and no code.
 
 ## License
 

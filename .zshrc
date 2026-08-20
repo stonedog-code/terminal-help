@@ -1,14 +1,17 @@
 #!/usr/bin/env zsh
 #
-# An example ~/.zshrc, for symlinking the whole thing:
+# An example ~/.zshrc, if you would rather symlink one than let the installer
+# edit the one you have:
 #
 #   ln -s /path/to/terminal-help/.zshrc ~/.zshrc
 #
-# Most people should NOT do that — they already have a ~/.zshrc worth keeping.
-# The normal install adds one source line to the ~/.zshrc you already have,
-# which is what ./install.sh does for you.
-#
-# Personal settings do not belong in this file: it is in git. Put them in
-# user.sh, which is not. See user.sh.example.
+# YOUR OWN SETTINGS DO NOT GO IN HERE. This file is in git; put aliases,
+# exports, PATH entries and the get_user_info / user_on_load hooks in
+# ~/.zshrc-user.sh, which is loaded on the last line below and which no
+# upgrade will ever touch. Start from zshrc-user.sh.example.
 
-source "${${(%):-%x}:A:h}/terminal-help.zsh"
+export TH_HOME="${${(%):-%x}:A:h}"
+export TH_USER_FILE="${ZDOTDIR:-$HOME}/.zshrc-user.sh"
+
+source "$TH_HOME/terminal-help.zsh"   # the reference help
+th_source_user                        # your settings, from $TH_USER_FILE

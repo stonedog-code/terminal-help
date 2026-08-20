@@ -28,12 +28,6 @@ get_uv_info() {
     th_row "Run a tool:"         "uvx ruff check .    (no project install)"
     th_row "Manage interpreters:" "uv python install 3.12 3.13"
     th_row ""                    "uv python pin 3.13"
-    print -r --
-    th_row "Shared drive?"       "export UV_PROJECT_ENVIRONMENT=.venv-macos"
-    th_note "a .venv built on Linux holds Linux binaries and absolute paths."
-    th_note "Running it from macOS fails with 'Failed to spawn: uvicorn —"
-    th_note "No such file or directory', which names the script, not the"
-    th_note "interpreter it cannot find. One env per platform avoids it."
 }
 
 get_uvicorn_info() {

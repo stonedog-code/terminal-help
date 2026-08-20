@@ -7,16 +7,15 @@
 # Loading is silent apart from one version line. Everything else is printed
 # only when you ask for it: type `get_help`.
 #
-# NOTHING host-specific is in this repository. The hooks below are the entire
-# contract with the private half:
+# NOTHING host-specific is in this repository. Your own settings — aliases,
+# exports, hostnames, whatever you like — go in ~/.zshrc-user.sh, which lives
+# beside your ~/.zshrc and is loaded by th_source_user (see below). Two
+# optional function names are the entire contract:
 #
-#   user.sh        gitignored, never committed. May define anything, and is
-#                  expected to define some or all of:
-#     connect_work / disconnect_work   your share, VPN, tunnel, jump host
-#     get_user_info                    your own reference sections
-#     user_on_load                     what to run on every new shell
+#     get_user_info     your own reference sections, printed on demand
+#     user_on_load      what to run on every new shell
 #
-# Start from user.sh.example. Set TH_USER_FILE to keep it somewhere else.
+# Start from zshrc-user.sh.example. Set TH_USER_FILE to keep it elsewhere.
 
 # --- where am I ------------------------------------------------------------
 # %x is the file currently being sourced; :A resolves symlinks, :h takes the
@@ -42,36 +41,28 @@ unset _th_file
 
 alias help_me=get_help
 
-# --- load the private half -------------------------------------------------
-# Looked for in the repo first, then ~/.config. TH_USER_FILE keeps pointing at
-# the repo path when neither exists, so the "create it" hint names one place.
-TH_USER_FILE="${TH_USER_FILE:-$TH_HOME/user.sh}"
-_th_alt_user="$HOME/.config/terminal-help/user.sh"
+# --- the private half ------------------------------------------------------
+# Your own settings live in ~/.zshrc-user.sh — OUTSIDE this repository, beside
+# the ~/.zshrc that loads it. Nothing here knows your hostnames.
+#
+# th_source_user is what loads it, and the installed ~/.zshrc block calls it by
+# name so the contract is visible where people look for it. Sourcing this file
+# by hand? Call th_source_user yourself afterwards.
+TH_USER_FILE="${TH_USER_FILE:-${ZDOTDIR:-$HOME}/.zshrc-user.sh}"
 
-if [[ -r "$TH_USER_FILE" ]]; then
-    source "$TH_USER_FILE"
-    TH_USER_LOADED=1
-elif [[ -r "$_th_alt_user" ]]; then
-    TH_USER_FILE="$_th_alt_user"
-    source "$TH_USER_FILE"
-    TH_USER_LOADED=1
-else
-    TH_USER_LOADED=""
-    # Stubs, so a machine with no user.sh gets an instruction rather than
-    # "command not found" — which reads as a broken install.
-    connect_work() {
-        th_warn "No user.sh — connect_work is not defined on this machine."
-        th_row "Create it:" "cp \"$TH_HOME/user.sh.example\" \"$TH_HOME/user.sh\""
-        return 1
-    }
-    disconnect_work() { connect_work; }
-fi
-unset _th_alt_user
+th_source_user() {
+    [[ -n $TH_USER_SOURCED ]] && return 0      # idempotent: never load twice
+
+    [[ -r "$TH_USER_FILE" ]] && source "$TH_USER_FILE"
+    TH_USER_SOURCED=1
+
+    [[ -z $TH_QUIET ]] && th_defined user_on_load && user_on_load
+    return 0
+}
 
 # --- what a new shell prints -----------------------------------------------
 # One line: the installed version. Anything else you see comes from your own
-# user_on_load. Set TH_QUIET=1 to silence even that.
+# ~/.zshrc-user.sh. Set TH_QUIET=1 to silence even that.
 if [[ -z $TH_QUIET ]]; then
     th_banner
-    th_defined user_on_load && user_on_load
 fi

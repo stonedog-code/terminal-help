@@ -25,21 +25,40 @@ get_help() {
     get_user_help
 }
 
-# The private half. What appears here depends entirely on what user.sh
-# defines — the checked-in code knows the hook names and nothing else.
+# The private half. What appears here depends on what user.sh actually
+# DEFINES — not on whether the file exists, since install.sh always creates it
+# and creates it empty.
 get_user_help() {
-    if [[ -n $TH_USER_LOADED ]]; then
-        th_sub "🔒" "Yours (from user.sh, never committed)"
-        th_defined get_user_info   && th_row "get_user_info"   "🔒 your own reference sections"
-        th_defined connect_work    && th_row "connect_work"    "🔌 mount your work share"
-        th_defined disconnect_work && th_row "disconnect_work" "🔌 unmount it"
-        th_defined user_on_load    && th_note "user_on_load runs on every new shell"
+    if [[ -z $TH_USER_SOURCED ]]; then
+        th_sub "🔒" "Yours (not loaded)"
+        th_text "terminal-help is loaded but your settings file is not — nothing"
+        th_text "called th_source_user. Add it to your ~/.zshrc after the source"
+        th_text "line, or re-run the installer."
+        th_row "Your settings file:" "${TH_USER_FILE:-${ZDOTDIR:-$HOME}/.zshrc-user.sh}"
+        th_row "Load it now:"        "th_source_user"
+        return
+    fi
+
+    local -a defined
+    th_defined get_user_info && defined+=("get_user_info|🔒 your own reference sections")
+
+    if (( ${#defined} )) || th_defined user_on_load || [[ -s $file ]]; then
+        th_sub "🔒" "Yours (from ${file:t}, never committed)"
+        local entry
+        for entry in "${defined[@]}"; do
+            th_row "${entry%%|*}" "${entry#*|}"
+        done
+        # A file holding only aliases and exports defines no hooks, and that is
+        # a perfectly good use of it — say so rather than calling it empty.
+        (( ${#defined} )) || th_row "${file:t}" "loaded — no hooks defined, which is fine"
+        th_defined user_on_load && th_note "user_on_load runs on every new shell"
     else
-        th_sub "🔒" "Yours (not set up yet)"
-        th_text "Private commands — a work share to mount, your own aliases,"
-        th_text "your own reference sections — live in user.sh, which is"
-        th_text "gitignored and never leaves this machine."
-        th_row "Start it:"       "cp \"${TH_HOME:-.}/user.sh.example\" \"${TH_USER_FILE:-${TH_HOME:-.}/user.sh}\""
+        th_sub "🔒" "Yours (empty for now)"
+        th_text "Aliases, exports, PATH entries, your own reference sections —"
+        th_text "they go in your settings file, not in ~/.zshrc. It is loaded on"
+        th_text "every shell, and a terminal-help upgrade never touches it."
+        th_row "Your settings file:" "${TH_USER_FILE:-${ZDOTDIR:-$HOME}/.zshrc-user.sh}"
+        th_row "What can go in it:"  "cat \"${TH_HOME:-.}/zshrc-user.sh.example\""
     fi
 }
 

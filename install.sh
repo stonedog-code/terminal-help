@@ -78,22 +78,31 @@ choose_targets() {
         *) default_choice=2 ;;
     esac
 
-    head_ "🧰 terminal-help v$VERSION"
-    say "  Which shells should it be installed for? Pick as many as apply."
-    say ""
-    say "    ${C_B}1${C_R}  🍎  macOS       — adds a source line to ~/.zshrc"
-    say "    ${C_B}2${C_R}  🐧  Linux       — adds a source line to ~/.zshrc"
-    say "    ${C_B}3${C_R}  🪟  Windows     — adds a line to your PowerShell \$PROFILE"
-    say "    ${C_B}4${C_R}  🌍  All three"
-    say ""
-    note "detected: $PLATFORM"
-    printf '  %sNumbers, comma or space separated [%s]: %s' "$C_L" "$default_choice" "$C_R"
+    # Everything here is written to stderr on purpose: this function's stdout
+    # is captured by the caller, so a single stray line of menu becomes a
+    # "target" and the install fails with "unknown target: Which".
+    {
+        head_ "🧰 terminal-help v$VERSION"
+        say "  Which shells should it be installed for? Pick as many as apply."
+        say ""
+        say "    ${C_B}1${C_R}  🍎  macOS       — adds a source line to ~/.zshrc"
+        say "    ${C_B}2${C_R}  🐧  Linux       — adds a source line to ~/.zshrc"
+        say "    ${C_B}3${C_R}  🪟  Windows     — adds a line to your PowerShell \$PROFILE"
+        say "    ${C_B}4${C_R}  🌍  All three"
+        say ""
+        note "detected: $PLATFORM"
+        printf '  %sNumbers, comma or space separated [%s]: %s' "$C_L" "$default_choice" "$C_R"
+    } >&2
 
     local reply=""
     if [ "$ASSUME_YES" -eq 1 ]; then
-        reply="$default_choice"; say "$reply"
-    else
+        reply="$default_choice"; say "$reply" >&2
+    elif [ -t 0 ]; then
         read -r reply || true
+    else
+        # No terminal to ask (piped installer): take the detected default.
+        reply="$default_choice"
+        say "$reply" >&2
     fi
     [ -n "$reply" ] || reply="$default_choice"
 
@@ -121,6 +130,73 @@ strip_block() {  # strip_block <file>
     fi
 }
 
+# Ask before touching anything. Declining must leave the file exactly as it
+# was — so the prompt comes BEFORE the block is stripped, never after.
+confirm() {  # confirm <question> ; default yes
+    if [ "$ASSUME_YES" -eq 1 ] || [ ! -t 0 ]; then
+        return 0
+    fi
+    printf '  %s%s [Y/n]: %s' "$C_L" "$1" "$C_R"
+    local reply=""
+    read -r reply || true
+    say ""
+    case "$reply" in [Nn]*) return 1 ;; *) return 0 ;; esac
+}
+
+# The block. Its first lines are the point: they tell whoever opens ~/.zshrc
+# where their own settings belong, which is not this file.
+rc_block() {
+    cat <<BLOCK
+$BEGIN_MARK
+# Put YOUR shell settings in ~/.zshrc-user.sh — aliases, exports, PATH, and
+# the get_user_info / user_on_load hooks. NOT in this file: everything between
+# these two markers is rewritten by terminal-help's installer.
+export TH_HOME="$TH_DIR"
+export TH_USER_FILE="\${ZDOTDIR:-\$HOME}/.zshrc-user.sh"
+source "\$TH_HOME/terminal-help.zsh"   # the reference help
+th_source_user                        # your settings, from \$TH_USER_FILE
+$END_MARK
+BLOCK
+}
+
+# ~/.zshrc-user.sh belongs to the user, not to this installer.
+#
+# Created when it is absent. Otherwise IGNORED — not read, not parsed, not
+# copied, not backed up, not migrated, not diffed. Whatever is in it is none of
+# this script's business, which is what makes an upgrade safe to run blind.
+ensure_user_file() {
+    local user_file="$1"
+    if [ -e "$user_file" ]; then
+        ok "$(basename "$user_file") already exists — ignored, it is yours"
+        return 0
+    fi
+    cat > "$user_file" <<'USERFILE'
+#!/usr/bin/env zsh
+#
+# ~/.zshrc-user.sh — your shell settings. This file is yours alone: nothing
+# installs into it, upgrades never touch it, and it is never committed.
+#
+# It is sourced on every new shell by the terminal-help block in ~/.zshrc.
+# Put your settings HERE rather than in ~/.zshrc, which that block rewrites.
+#
+#   aliases      alias ll="ls -la"
+#   exports      export EDITOR="vim"
+#   PATH         path=("$HOME/.local/bin" $path)
+#
+# terminal-help also calls these two functions if you define them:
+#
+#   get_user_info     your own reference sections, printed on demand
+#   user_on_load      runs on every new shell (the only thing that prints
+#                     at startup besides the version line)
+#
+# For a worked example of both, see zshrc-user.sh.example in the
+# terminal-help clone.
+USERFILE
+    chmod 600 "$user_file" 2>/dev/null || true
+    ok "created $(basename "$user_file") (mode 600)"
+    note "it is yours from here on — this installer never reads or writes it again"
+}
+
 install_zsh_target() {
     local label="$1" emoji="$2"
     head_ "$emoji  $label"
@@ -140,20 +216,30 @@ install_zsh_target() {
         esac
     fi
 
-    local rc="${ZDOTDIR:-$HOME}/.zshrc"
-    strip_block "$rc"
+    local home_dir="${ZDOTDIR:-$HOME}"
+    local rc="$home_dir/.zshrc"
+    local user_file="$home_dir/.zshrc-user.sh"
+
     if [ "$UNINSTALL" -eq 1 ]; then
+        strip_block "$rc"
         ok "removed the terminal-help block from $rc"
+        note "$user_file was left alone — it is yours"
         return 0
     fi
 
-    {
-        printf '%s\n' "$BEGIN_MARK"
-        printf 'export TH_HOME=%s\n' "\"$TH_DIR\""
-        printf 'source "$TH_HOME/terminal-help.zsh"\n'
-        printf '%s\n' "$END_MARK"
-    } >> "$rc"
+    if ! confirm "Update $rc so terminal-help loads in every shell?"; then
+        note "nothing was changed. To wire it up by hand, add this to $rc:"
+        say ""
+        rc_block | sed "s/^/    ${C_L}/;s/\$/${C_R}/"
+        say ""
+        note "then create $user_file for your own settings"
+        return 0
+    fi
+
+    strip_block "$rc"
+    rc_block >> "$rc"
     ok "added the terminal-help block to $rc"
+    ensure_user_file "$user_file"
     note "open a new terminal, or run: source $rc"
 }
 
@@ -193,12 +279,21 @@ install_windows_target() {
         return 0
     fi
 
-    mkdir -p "$(dirname "$profile")"
-    strip_block "$profile"
     if [ "$UNINSTALL" -eq 1 ]; then
+        strip_block "$profile"
         ok "removed the terminal-help block from $profile"
         return 0
     fi
+
+    if ! confirm "Update $profile so terminal-help loads in every PowerShell?"; then
+        note "nothing was changed. Add these two lines to \$PROFILE by hand:"
+        say "    ${C_L}\$env:TH_HOME = \"$win_dir\"${C_R}"
+        say "    ${C_L}. \"\$env:TH_HOME\\powershell\\TerminalHelp.ps1\"${C_R}"
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$profile")"
+    strip_block "$profile"
 
     {
         printf '%s\n' "$BEGIN_MARK"
@@ -208,30 +303,6 @@ install_windows_target() {
     } >> "$profile"
     ok "added the terminal-help block to $profile"
     note "PowerShell must allow local scripts: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned"
-}
-
-# --- the private half ------------------------------------------------------
-offer_user_file() {
-    [ "$UNINSTALL" -eq 1 ] && return 0
-    head_ "🔒  Your private half"
-    if [ -f "$TH_DIR/user.sh" ]; then
-        ok "user.sh already exists — left untouched"
-        return 0
-    fi
-    say "  Connection details, hostnames and personal aliases live in user.sh,"
-    say "  which is gitignored and never committed."
-    local reply="y"
-    if [ "$ASSUME_YES" -eq 0 ]; then
-        printf '  %sCreate user.sh from the example now? [Y/n]: %s' "$C_L" "$C_R"
-        read -r reply || true
-        [ -n "$reply" ] || reply="y"
-    fi
-    case "$reply" in
-        [Yy]*) cp "$TH_DIR/user.sh.example" "$TH_DIR/user.sh"
-               chmod 600 "$TH_DIR/user.sh"
-               ok "created user.sh (mode 600) — edit it: \$EDITOR $TH_DIR/user.sh" ;;
-        *)     note "skipped. Copy it yourself: cp user.sh.example user.sh" ;;
-    esac
 }
 
 # --- run -------------------------------------------------------------------
@@ -257,8 +328,6 @@ for t in $SELECTED; do
         *)       warn "unknown target: $t" ;;
     esac
 done
-
-offer_user_file
 
 head_ "🏁 Done"
 if [ "$UNINSTALL" -eq 1 ]; then

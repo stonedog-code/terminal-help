@@ -20,13 +20,11 @@ get_mac_info() {
     th_row "Open with TextEdit:" "open -e {file}"
     th_row "Quick Look:"         "qlmanage -p {file} 2>/dev/null"
     print -r --
-    th_sub "🗂" "Network shares and Finder litter"
-    th_row "Mount a share:"      "mount_smbfs //{user}@{host}/{share} ~/{mount}"
-    th_note "the password comes from the login keychain after the first mount"
-    th_row "Unmount:"            "diskutil unmount ~/{mount}"
-    th_row "In Finder:"          "⌘K, then smb://{host}/{share}"
+    th_sub "🗂" "Finder"
     th_row "Stop .DS_Store:"     "defaults write com.apple.desktopservices \\"
     th_row ""                    "  DSDontWriteNetworkStores -bool true"
     th_note "Finder otherwise scatters .DS_Store and ._* files into every"
-    th_note "network share it opens, including your project directories"
+    th_note "network volume it opens, including project directories"
+    th_row "Show hidden files:"  "defaults write com.apple.finder AppleShowAllFiles -bool true"
+    th_row ""                    "killall Finder    (to apply either change)"
 }
