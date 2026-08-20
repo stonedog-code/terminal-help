@@ -172,7 +172,6 @@ install_runtime() {
     cp "$TH_DIR/terminal-help.zsh"     "$TH_INSTALL_DIR/"
     cp "$TH_DIR"/lib/*.zsh             "$TH_INSTALL_DIR/lib/"
     cp "$TH_DIR/VERSION"               "$TH_INSTALL_DIR/"
-    cp "$TH_DIR/zshrc-user.sh.example" "$TH_INSTALL_DIR/"
     ok "installed $(topic_files | wc -l | tr -d ' ') topics to ${TH_INSTALL_DIR/#$HOME/\~}"
     note "every topic is installed; the manifest below decides which ones load"
 }
@@ -273,6 +272,9 @@ ensure_user_file() {
 #                     at startup besides the version line)
 #
 # Help CONTENT goes somewhere else: ~/.zshrc-help.d/ — see its README.txt.
+#
+# Everything this file can do is described in these comments. There is no
+# separate example file to copy from and get out of step with.
 USERFILE
     chmod 600 "$USER_FILE" 2>/dev/null || true
     ok "created $(basename "$USER_FILE") (mode 600)"
