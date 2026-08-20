@@ -24,3 +24,11 @@ zshrc-user.sh
 *~
 *.orig
 *.rej
+
+# Agent and MCP tool scratch. Playwright-MCP writes browser console logs and
+# page snapshots into .playwright-mcp/ under whatever directory the session
+# happens to be in — content from a site that has nothing to do with this repo.
+# Same hazard as the swap file above, and this one is worse: the files arrive
+# continuously, so the window for a stray `git add -A` is always open, and this
+# repository is PUBLIC.
+.playwright-mcp/
