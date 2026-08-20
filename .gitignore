@@ -1,7 +1,9 @@
-# The private half — connection details, hostnames, personal aliases.
-# NEVER committed. Start from user.sh.example.
+# The private half. It normally lives in $HOME (~/.zshrc-user.sh), but ignore
+# it here too so a copy kept beside the clone can never be committed.
+.zshrc-user.sh
 user.sh
 powershell/user.ps1
+powershell/profile-user.ps1
 
 # macOS
 .DS_Store
@@ -9,7 +11,3 @@ powershell/user.ps1
 
 # Windows
 Thumbs.db
-
-# Agent instructions stay OUT of every repo under energy-solution.
-CLAUDE.md
-.claude/

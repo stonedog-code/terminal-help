@@ -9,12 +9,11 @@
     Loading is silent apart from one version line. Everything else prints only
     when you ask: type  get_help
 
-    Nothing host-specific lives here. The private half is powershell\user.ps1,
-    which is gitignored and may define:
+    Nothing host-specific lives here. Your own settings live in
+    profile-user.ps1 beside your $PROFILE, which may define:
 
-        Connect-Work / Disconnect-Work   your share, VPN, tunnel
-        Show-UserInfo                    your own reference sections
-        Invoke-UserOnLoad                what runs on every new shell
+        Show-UserInfo       your own reference sections
+        Invoke-UserOnLoad   what runs on every new shell
 #>
 
 # --- where am I ------------------------------------------------------------
@@ -114,18 +113,23 @@ function Show-TerminalHelp {
 }
 
 function Show-UserHelp {
-    if ($script:ThUserLoaded) {
-        Write-ThSub '🔒' 'Yours (from user.ps1, never committed)'
-        if (ThDefined Show-UserInfo)     { Write-ThRow 'get_user_info'   '🔒 your own reference sections' }
-        if (ThDefined Connect-Work)      { Write-ThRow 'connect_work'    '🔌 mount your work share' }
-        if (ThDefined Disconnect-Work)   { Write-ThRow 'disconnect_work' '🔌 unmount it' }
+    $file = $script:ThUserFile
+    $defined = @()
+    if (ThDefined Show-UserInfo) { $defined += ,@('get_user_info', '🔒 your own reference sections') }
+    $hasContent = (Test-Path $file) -and ((Get-Item $file).Length -gt 0)
+
+    if ($defined.Count -gt 0 -or (ThDefined Invoke-UserOnLoad) -or $hasContent) {
+        Write-ThSub '🔒' "Yours (from $(Split-Path $file -Leaf), never committed)"
+        foreach ($d in $defined) { Write-ThRow $d[0] $d[1] }
+        if ($defined.Count -eq 0) { Write-ThRow (Split-Path $file -Leaf) 'loaded — no hooks defined, which is fine' }
         if (ThDefined Invoke-UserOnLoad) { Write-ThNote 'Invoke-UserOnLoad runs on every new shell' }
     } else {
-        Write-ThSub '🔒' 'Yours (not set up yet)'
-        Write-ThText 'Private commands — a share to mount, your own aliases, your own'
-        Write-ThText 'reference sections — live in powershell\user.ps1, which is'
-        Write-ThText 'gitignored and never leaves this machine.'
-        Write-ThRow 'Start it:' "Copy-Item `"$script:ThHome\powershell\user.ps1.example`" `"$script:ThHome\powershell\user.ps1`""
+        Write-ThSub '🔒' 'Yours (empty for now)'
+        Write-ThText 'Aliases, functions, environment variables, your own reference'
+        Write-ThText 'sections — they go in your settings file, not in $PROFILE. It is'
+        Write-ThText 'loaded on every shell, and an upgrade never touches it.'
+        Write-ThRow 'Your settings file:' $file
+        Write-ThRow 'What can go in it:'  "Get-Content `"$script:ThHome\powershell\profile-user.ps1.example`""
     }
 }
 
@@ -345,27 +349,31 @@ Set-Alias -Name get_mac_info          -Value Show-MacInfo        -Scope Global -
 Set-Alias -Name get_linux_info        -Value Show-LinuxInfo      -Scope Global -Force
 
 # --- the private half ------------------------------------------------------
-$script:ThUserFile = if ($env:TH_USER_FILE) { $env:TH_USER_FILE } else { "$script:ThHome\powershell\user.ps1" }
-$script:ThUserLoaded = $false
-if (Test-Path $script:ThUserFile) {
-    . $script:ThUserFile
-    $script:ThUserLoaded = $true
-    if (ThDefined Show-UserInfo)   { Set-Alias -Name get_user_info   -Value Show-UserInfo    -Scope Global -Force }
-    if (ThDefined Connect-Work)    { Set-Alias -Name connect_work    -Value Connect-Work     -Scope Global -Force }
-    if (ThDefined Disconnect-Work) { Set-Alias -Name disconnect_work -Value Disconnect-Work  -Scope Global -Force }
+# Your own settings live next to your $PROFILE as profile-user.ps1 — outside
+# this repository. Resolved from $PROFILE rather than hardcoded, because the
+# profile directory differs between Windows (Documents\PowerShell) and
+# macOS/Linux pwsh (~/.config/powershell).
+#
+# This runs at SCRIPT scope on purpose, not inside a function. `.` sources into
+# the CURRENT scope, so a function that dot-sourced this file would trap every
+# function the user defines inside itself, and they would vanish the moment it
+# returned. At script scope — with this file itself dot-sourced from $PROFILE —
+# the user's definitions land in the global scope, where they belong.
+$script:ThUserFile = if ($env:TH_USER_FILE) {
+    $env:TH_USER_FILE
+} elseif ($PROFILE) {
+    Join-Path (Split-Path $PROFILE -Parent) 'profile-user.ps1'
 } else {
-    function Connect-Work {
-        Write-ThWarn 'No user.ps1 — Connect-Work is not defined on this machine.'
-        Write-ThRow 'Create it:' "Copy-Item `"$script:ThHome\powershell\user.ps1.example`" `"$script:ThHome\powershell\user.ps1`""
-    }
-    function Disconnect-Work { Connect-Work }
-    Set-Alias -Name connect_work    -Value Connect-Work    -Scope Global -Force
-    Set-Alias -Name disconnect_work -Value Disconnect-Work -Scope Global -Force
+    "$script:ThHome\powershell\user.ps1"
 }
 
+if (Test-Path $script:ThUserFile) { . $script:ThUserFile }
+
+if (ThDefined Show-UserInfo) { Set-Alias -Name get_user_info -Value Show-UserInfo -Scope Global -Force }
+
 # --- what a new shell prints -----------------------------------------------
-# One line: the installed version. Anything else comes from your own
-# Invoke-UserOnLoad. Set TH_QUIET=1 to silence even that.
+# One line: the installed version, then whatever your own Invoke-UserOnLoad
+# prints. Set TH_QUIET=1 to silence both.
 if (-not $env:TH_QUIET) {
     $b = ThPaint bold; $c = ThPaint title; $n = ThPaint note; $m = ThPaint cmd; $r = ThPaint reset
     Write-Host "$b$c🧰 terminal-help$r ${b}v$($script:ThVersion)$r$n · $r${m}get_help$r"
