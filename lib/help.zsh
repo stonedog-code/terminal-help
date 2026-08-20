@@ -10,6 +10,7 @@ get_help() {
     th_row "get_help"     "❓ this list"
     th_row "get_versions" "📋 what is installed on this machine"
     th_row "th_topics"    "🗂 turn help topics on and off"
+    th_row "th_doctor"    "🩺 why isn't my help or my settings file loading?"
     print -r --
 
     local topic fn

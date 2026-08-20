@@ -11,3 +11,7 @@ powershell/profile-user.ps1
 
 # Windows
 Thumbs.db
+
+# Local troubleshooting copies of a user settings file — never committed.
+zshrc-user-example*
+zshrc-user.sh
