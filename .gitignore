@@ -15,3 +15,12 @@ Thumbs.db
 # Local troubleshooting copies of a user settings file — never committed.
 zshrc-user-example*
 zshrc-user.sh
+
+# Editor scratch. A vim swap file was committed on 2026-08-20 by a `git add -A`
+# that swept up whatever happened to be in the tree — in a PUBLIC repo. Ignore
+# the whole class so it cannot happen again.
+*.swp
+*.swo
+*~
+*.orig
+*.rej
