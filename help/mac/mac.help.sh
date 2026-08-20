@@ -1,9 +1,10 @@
 #!/usr/bin/env zsh
 # 🍎 macOS — Homebrew, the default shell, and the Finder settings worth changing.
+# TH_TOPIC: mac
+# TH_EMOJI: 🍎
+# TH_DESC:  macOS — Homebrew, the default shell, Finder
 
-th_register get_mac_info     "🍎 macOS: brew, Finder, clipboard"
-
-get_mac_info() {
+_th_help_mac() {
     th_head "🍎" "macOS"
     th_row "Install Homebrew:"   "/bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
     th_note "on Apple silicon it lands in /opt/homebrew — add it to PATH:"

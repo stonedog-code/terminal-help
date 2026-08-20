@@ -28,7 +28,7 @@ note() { printf '  %s\n' "$*"; }
 # quietly went from 13 files to 7 while still printing OK — the exact
 # green-over-an-empty-set failure this repo's rules warn about. The count in
 # the summary is what caught it, which is why the count is printed.
-zsh_files=(terminal-help.zsh lib/*.zsh help/*.help.sh zshrc-user.sh.example)
+zsh_files=(terminal-help.zsh lib/*.zsh help/*/*.help.sh zshrc-user.sh.example)
 if ! command -v zsh > /dev/null 2>&1; then
   printf 'check-syntax: zsh is not installed, so %s zsh file(s) CANNOT be checked.\n' "${#zsh_files[@]}" >&2
   printf '              Install it (apt-get install zsh / brew install zsh) — a skipped\n' >&2
@@ -48,23 +48,11 @@ for f in "${bash_files[@]}"; do
 done
 note "bash: ${#bash_files[@]} file(s) parsed"
 
-# --- powershell --------------------------------------------------------------
-ps_files=(powershell/*.ps1 powershell/*.ps1.example)
-if ! command -v pwsh > /dev/null 2>&1; then
-  printf 'check-syntax: pwsh is not installed, so %s PowerShell file(s) CANNOT be checked.\n' "${#ps_files[@]}" >&2
-  fail=1
-else
-  for f in "${ps_files[@]}"; do
-    if pwsh -NoProfile -Command "
-        \$e = \$null
-        [System.Management.Automation.Language.Parser]::ParseFile('$f', [ref]\$null, [ref]\$e) > \$null
-        if (\$e.Count) { \$e | ForEach-Object { Write-Error \$_ }; exit 1 }
-      " > /dev/null 2>&1; then note "pwsh ok      $f"; else note "pwsh FAILED  $f"; fail=1; fi
-  done
-  note "pwsh: ${#ps_files[@]} file(s) parsed"
-fi
+# PowerShell used to be checked here. terminal-help no longer ships a
+# PowerShell runtime — PowerShell is a help TOPIC now (help/powershell/), and
+# that file is zsh like every other, checked by the zsh pass above.
 
-total=$(( ${#zsh_files[@]} + ${#bash_files[@]} + ${#ps_files[@]} ))
+total=$(( ${#zsh_files[@]} + ${#bash_files[@]} ))
 if [ "$total" -eq 0 ]; then
   printf 'check-syntax: 0 files examined. A gate that inspects nothing is not a gate.\n' >&2
   exit 1

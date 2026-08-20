@@ -1,12 +1,13 @@
 #!/usr/bin/env zsh
 # 🌿 git — everyday commands, branch naming, worktrees, pull requests.
+# TH_TOPIC: git
+# TH_EMOJI: 🌿
+# TH_DESC:  git — everyday commands, branches, worktrees, pull requests
+# TH_ALSO:  get_git_branch_help | 🌱 | branch naming and commit messages
+# TH_ALSO:  get_git_worktree_help | 🌳 | worktrees, and the rules that make them work
+# TH_ALSO:  get_git_pr_help | 🔀 | pull requests with gh
 
-th_register       get_git_info           "🌿 git — all three sections below"
-th_register_child get_git_branch_info    "🌱 branch naming and commit messages"
-th_register_child get_git_worktree_info  "🌳 worktrees, and the rules that make them work"
-th_register_child get_git_pr_info        "🔀 pull requests with gh"
-
-get_git_info() {
+_th_help_git() {
     th_head "🌿" "Git"
     th_row "Where am I:"        "git status -sb"
     th_note "branch and short status in one line"
@@ -21,12 +22,12 @@ get_git_info() {
     th_row "Amend and repush:"  "git commit --amend && git push --force-with-lease"
     th_note "--force-with-lease, never --force: it refuses if someone pushed since your last fetch"
     print -r --
-    get_git_branch_info
-    get_git_worktree_info
-    get_git_pr_info
+    get_git_branch_help
+    get_git_worktree_help
+    get_git_pr_help
 }
 
-get_git_branch_info() {
+get_git_branch_help() {
     th_sub "🌱" "Branches and commit messages"
     th_row "Never commit to main." "every change is a branch, merged by a PR"
     th_row "Branch format:"      "{type}/{kebab-case-slug}   (<= 6 words)"
@@ -40,7 +41,7 @@ get_git_branch_info() {
     th_note "read this BEFORE starting: you may already have a branch for it"
 }
 
-get_git_worktree_info() {
+get_git_worktree_help() {
     th_sub "🌳" "Worktrees — one feature, one branch, one worktree, one PR"
     th_text "A worktree is a second working directory sharing one .git. Two"
     th_text "features can be edited at once with no stashing and no branch"
@@ -71,7 +72,7 @@ get_git_worktree_info() {
     th_text "     finished work look live to the next person."
 }
 
-get_git_pr_info() {
+get_git_pr_help() {
     th_sub "🔀" "Pull requests (gh)"
     th_row "Install:"            "brew install gh && gh auth login"
     th_row "Who am I:"           "gh api user -q .login"

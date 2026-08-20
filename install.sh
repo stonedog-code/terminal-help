@@ -2,228 +2,258 @@
 #
 # terminal-help installer.
 #
-#   ./install.sh              ask which platforms to set up
-#   ./install.sh --targets mac,linux,windows --yes    non-interactive
-#   ./install.sh --uninstall  remove the blocks it added
+#   ./install.sh                 pick your topics, then install
+#   ./install.sh --all --yes     every topic, no questions
+#   ./install.sh --topics git,linux,powershell --yes
+#   ./install.sh --uninstall     remove the block and ~/.terminal-help
 #
-# What it does, per target: makes sure the shell can find terminal-help by
-# adding ONE marked block to your existing rc file. It never overwrites your
-# rc, and re-running it replaces its own block rather than appending another.
+# It copies the runtime into ~/.terminal-help and adds ONE marked block to the
+# ~/.zshrc you already have. Your own files — ~/.zshrc-user.sh and
+# ~/.zshrc-help.d/ — are created once if missing and never touched again.
+#
+# terminal-help runs in zsh only. PowerShell is a HELP TOPIC here, not a
+# runtime: `get_powershell_help` is a reference you read from your own shell.
 
-set -euo pipefail
+set -uo pipefail
 
 TH_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 VERSION="$(cat "$TH_DIR/VERSION" 2>/dev/null || echo unknown)"
 BEGIN_MARK="# >>> terminal-help >>>"
 END_MARK="# <<< terminal-help <<<"
 
-ASSUME_YES=0
-UNINSTALL=0
-TARGETS=""
-LINK=0
-
-# Where the runtime is INSTALLED. Not the clone: ~/.zshrc must not name a path
-# that exists only on the machine the install was run from. A clone lives on a
-# work share, in ~/src, in /tmp — none of which is true on the next machine,
-# and when the path is wrong the source fails, th_source_user is never defined,
-# and the user's own settings file silently never loads.
 TH_INSTALL_DIR="${TH_INSTALL_DIR:-$HOME/.terminal-help}"
+HOME_DIR="${ZDOTDIR:-$HOME}"
+USER_FILE="$HOME_DIR/.zshrc-user.sh"
+USER_HELP_DIR="$HOME_DIR/.zshrc-help.d"
 
-# --- pretty ----------------------------------------------------------------
+ASSUME_YES=0; UNINSTALL=0; LINK=0; WANT_ALL=0; TOPICS_ARG=""
+
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
     C_T=$'\033[38;5;39m'; C_L=$'\033[38;5;252m'; C_N=$'\033[38;5;244m'
     C_OK=$'\033[38;5;114m'; C_W=$'\033[38;5;209m'; C_B=$'\033[1m'; C_R=$'\033[0m'
-else
-    C_T=; C_L=; C_N=; C_OK=; C_W=; C_B=; C_R=
-fi
-say()  { printf '%s\n' "$*"; }
+else C_T=; C_L=; C_N=; C_OK=; C_W=; C_B=; C_R=; fi
+say()   { printf '%s\n' "$*"; }
 head_() { printf '\n%s%s%s%s\n' "$C_B" "$C_T" "$*" "$C_R"; }
-ok()   { printf '  %s✓  %s%s\n' "$C_OK" "$*" "$C_R"; }
-warn() { printf '  %s⚠  %s%s\n' "$C_W" "$*" "$C_R"; }
-note() { printf '  %s↳  %s%s\n' "$C_N" "$*" "$C_R"; }
+ok()    { printf '  %s✓  %s%s\n' "$C_OK" "$*" "$C_R"; }
+warn()  { printf '  %s⚠  %s%s\n' "$C_W" "$*" "$C_R"; }
+note()  { printf '  %s↳  %s%s\n' "$C_N" "$*" "$C_R"; }
 
 usage() {
     cat <<USAGE
 terminal-help v$VERSION installer
 
-  --targets mac,linux,windows   which platforms to set up (default: ask)
-  --yes                         accept defaults, ask nothing
-  --uninstall                   remove the block, and the installed copy in ~/.terminal-help
-  --link                        symlink the clone instead of copying it (for
-                                working ON terminal-help, not with it)
-  --help                        this message
+  --topics a,b,c   install with these topics selected (default: ask)
+  --all            select every topic
+  --yes            accept defaults, ask nothing
+  --link           symlink the clone instead of copying (for working ON this)
+  --uninstall      remove the block and ~/.terminal-help
+  --help           this message
+
+Topics are discovered from help/*/*.help.sh — the same list the menu shows.
 USAGE
 }
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --targets) TARGETS="$2"; shift 2 ;;
-        --targets=*) TARGETS="${1#*=}"; shift ;;
-        --yes|-y)  ASSUME_YES=1; shift ;;
+        --topics) TOPICS_ARG="$2"; shift 2 ;;
+        --topics=*) TOPICS_ARG="${1#*=}"; shift ;;
+        --all) WANT_ALL=1; shift ;;
+        --yes|-y) ASSUME_YES=1; shift ;;
+        --link) LINK=1; shift ;;
         --uninstall) UNINSTALL=1; shift ;;
-        --link)    LINK=1; shift ;;
         --help|-h) usage; exit 0 ;;
         *) warn "unknown option: $1"; usage; exit 2 ;;
     esac
 done
 
-# --- what is this machine --------------------------------------------------
+confirm() {  # default yes
+    if [ "$ASSUME_YES" -eq 1 ] || [ ! -t 0 ]; then return 0; fi
+    printf '  %s%s [Y/n]: %s' "$C_L" "$1" "$C_R"
+    local reply=""; read -r reply || true; say ""
+    case "$reply" in [Nn]*) return 1 ;; *) return 0 ;; esac
+}
+
+# --- the catalogue ---------------------------------------------------------
+# Read from the fixed header comment, never by sourcing or by parsing shell.
+# A bash installer that greps shell CODE is coupled to how that code is
+# formatted; one documented line per fact is not.
+header_field() { sed -n "1,20{s/^# $2:[[:space:]]*//p;}" "$1" | head -n1; }
+
+topic_files() { find "$TH_DIR/help" -mindepth 2 -name '*.help.sh' -not -path '*/user/*' | sort; }
+
+catalogue() {  # topic<TAB>emoji<TAB>category<TAB>description
+    local f name
+    while IFS= read -r f; do
+        name="$(header_field "$f" TH_TOPIC)"
+        [ -n "$name" ] || continue
+        printf '%s\t%s\t%s\t%s\n' "$name" "$(header_field "$f" TH_EMOJI)" \
+            "$(basename "$(dirname "$f")")" "$(header_field "$f" TH_DESC)"
+    done < <(topic_files)
+}
+
 detect_platform() {
-    case "$(uname -s 2>/dev/null || echo unknown)" in
+    case "$(uname -s 2>/dev/null)" in
         Darwin) echo mac ;;
-        Linux)  if grep -qi microsoft /proc/version 2>/dev/null; then echo wsl; else echo linux; fi ;;
-        MINGW*|MSYS*|CYGWIN*) echo windows ;;
-        *) echo unknown ;;
+        Linux)  grep -qi microsoft /proc/version 2>/dev/null && echo windows || echo linux ;;
+        *) echo "" ;;
     esac
 }
-PLATFORM="$(detect_platform)"
 
-# --- the multi-select ------------------------------------------------------
-choose_targets() {
-    local default_choice
-    case "$PLATFORM" in
-        mac) default_choice=1 ;;
-        linux) default_choice=2 ;;
-        wsl) default_choice="2,3" ;;
-        windows) default_choice=3 ;;
-        *) default_choice=2 ;;
-    esac
+choose_topics() {  # everything here goes to stderr; only the list is stdout
+    local -a names=() descs=() emojis=()
+    local line n e c d
+    while IFS=$'\t' read -r n e c d; do names+=("$n"); emojis+=("$e"); descs+=("$c: $d"); done < <(catalogue)
 
-    # Everything here is written to stderr on purpose: this function's stdout
-    # is captured by the caller, so a single stray line of menu becomes a
-    # "target" and the install fails with "unknown target: Which".
+    local platform; platform="$(detect_platform)"
+    local default_list="" i
+    for i in "${!names[@]}"; do
+        case "${names[$i]}" in
+            "$platform") default_list="$default_list ${names[$i]}" ;;
+            git|python)  default_list="$default_list ${names[$i]}" ;;
+        esac
+    done
+    default_list="${default_list# }"
+
     {
         head_ "🧰 terminal-help v$VERSION"
-        say "  Which shells should it be installed for? Pick as many as apply."
+        say "  Which topics do you want help for? Everything is installed either"
+        say "  way — this chooses what loads, and you can change it later with"
+        say "  ${C_B}th_topics${C_R}, with no clone needed."
         say ""
-        say "    ${C_B}1${C_R}  🍎  macOS       — adds a source line to ~/.zshrc"
-        say "    ${C_B}2${C_R}  🐧  Linux       — adds a source line to ~/.zshrc"
-        say "    ${C_B}3${C_R}  🪟  Windows     — adds a line to your PowerShell \$PROFILE"
-        say "    ${C_B}4${C_R}  🌍  All three"
+        for i in "${!names[@]}"; do
+            printf '    %s%2d%s  %s  %-12s %s%s%s\n' "$C_B" "$((i+1))" "$C_R" \
+                "${emojis[$i]}" "${names[$i]}" "$C_N" "${descs[$i]}" "$C_R"
+        done
         say ""
-        note "detected: $PLATFORM"
-        printf '  %sNumbers, comma or space separated [%s]: %s' "$C_L" "$default_choice" "$C_R"
+        note "detected platform: ${platform:-unknown}"
+        printf '  %sNumbers (comma or space separated), "a" for all [%s]: %s' "$C_L" "$default_list" "$C_R"
     } >&2
 
     local reply=""
-    if [ "$ASSUME_YES" -eq 1 ]; then
-        reply="$default_choice"; say "$reply" >&2
-    elif [ -t 0 ]; then
-        read -r reply || true
-    else
-        # No terminal to ask (piped installer): take the detected default.
-        reply="$default_choice"
-        say "$reply" >&2
-    fi
-    [ -n "$reply" ] || reply="$default_choice"
+    if [ "$ASSUME_YES" -eq 1 ] || [ ! -t 0 ]; then reply=""; say "$default_list" >&2
+    else read -r reply || true; fi
 
-    local out=""
-    case "$reply" in *4*) out="mac linux windows" ;; esac
-    if [ -z "$out" ]; then
-        case "$reply" in *1*) out="$out mac" ;; esac
-        case "$reply" in *2*) out="$out linux" ;; esac
-        case "$reply" in *3*) out="$out windows" ;; esac
-    fi
-    echo "$out"
+    if [ -z "$reply" ]; then printf '%s\n' $default_list; return 0; fi
+    case "$reply" in [Aa]*) printf '%s\n' "${names[@]}"; return 0 ;; esac
+
+    local token
+    for token in $(printf '%s' "$reply" | tr ',' ' '); do
+        case "$token" in
+            ''|*[!0-9]*) for n in "${names[@]}"; do [ "$n" = "$token" ] && printf '%s\n' "$n"; done ;;
+            *) i=$((token-1)); [ -n "${names[$i]:-}" ] && printf '%s\n' "${names[$i]}" ;;
+        esac
+    done
 }
 
-# --- rc file surgery -------------------------------------------------------
-# Idempotent: strips any previous block, then appends the current one.
-strip_block() {  # strip_block <file>
-    local file="$1"
-    [ -f "$file" ] || return 0
-    if grep -qF "$BEGIN_MARK" "$file" 2>/dev/null; then
-        cp "$file" "$file.terminal-help.bak"
-        awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
-            index($0, b) { skip=1 } !skip { print } index($0, e) { skip=0 }
-        ' "$file.terminal-help.bak" > "$file"
-        note "backed up $(basename "$file") to $(basename "$file").terminal-help.bak"
-    fi
-}
-
-# Copy the runtime into $HOME so the rc block can reference $HOME and nothing
-# else. Program files only — the user's settings file is never in here.
+# --- the runtime -----------------------------------------------------------
 install_runtime() {
     if [ "$LINK" -eq 1 ]; then
-        if [ -e "$TH_INSTALL_DIR" ] && [ ! -L "$TH_INSTALL_DIR" ]; then
-            rm -rf "$TH_INSTALL_DIR"
-        else
-            rm -f "$TH_INSTALL_DIR"
-        fi
+        [ -e "$TH_INSTALL_DIR" ] && [ ! -L "$TH_INSTALL_DIR" ] && rm -rf "$TH_INSTALL_DIR"
+        rm -f "$TH_INSTALL_DIR"
         ln -s "$TH_DIR" "$TH_INSTALL_DIR"
         ok "linked $TH_INSTALL_DIR → $TH_DIR"
-        note "--link: edits in the clone are live. Do not use this on a machine"
-        note "that only consumes terminal-help — the clone must never move."
+        note "--link: edits in the clone are live. The clone must never move."
         return 0
     fi
 
     [ -L "$TH_INSTALL_DIR" ] && rm -f "$TH_INSTALL_DIR"
     mkdir -p "$TH_INSTALL_DIR/lib" "$TH_INSTALL_DIR/help"
-    # Replaced wholesale so a file deleted upstream does not linger. Only ever
-    # these two directories — the user's help directory is somewhere else
-    # entirely, precisely so that this line can be this blunt.
-    rm -f "$TH_INSTALL_DIR"/lib/*.zsh "$TH_INSTALL_DIR"/help/*.help.sh 2>/dev/null || true
-    cp "$TH_DIR/terminal-help.zsh"      "$TH_INSTALL_DIR/"
-    cp "$TH_DIR"/lib/*.zsh              "$TH_INSTALL_DIR/lib/"
-    cp "$TH_DIR"/help/*.help.sh         "$TH_INSTALL_DIR/help/"
-    cp "$TH_DIR/VERSION"                "$TH_INSTALL_DIR/"
-    cp "$TH_DIR/zshrc-user.sh.example"  "$TH_INSTALL_DIR/"
-    ok "installed the runtime to $TH_INSTALL_DIR ($(ls "$TH_INSTALL_DIR"/help/*.help.sh | wc -l | tr -d ' ') help files)"
-    note "your ~/.zshrc will reference \$HOME, so it works on any machine"
+
+    # Shipped categories are replaced wholesale so a file deleted upstream does
+    # not linger. Only these, by name — never `rm -rf help/`, and never
+    # help/user, which is a symlink to the user's own directory.
+    local cat
+    for cat in $(find "$TH_DIR/help" -mindepth 1 -maxdepth 1 -type d -not -name user -exec basename {} \;); do
+        rm -rf "${TH_INSTALL_DIR:?}/help/$cat"
+        mkdir -p "$TH_INSTALL_DIR/help/$cat"
+        cp "$TH_DIR/help/$cat"/*.help.sh "$TH_INSTALL_DIR/help/$cat/" 2>/dev/null || true
+    done
+    rm -f "$TH_INSTALL_DIR"/lib/*.zsh
+    cp "$TH_DIR/terminal-help.zsh"     "$TH_INSTALL_DIR/"
+    cp "$TH_DIR"/lib/*.zsh             "$TH_INSTALL_DIR/lib/"
+    cp "$TH_DIR/VERSION"               "$TH_INSTALL_DIR/"
+    cp "$TH_DIR/zshrc-user.sh.example" "$TH_INSTALL_DIR/"
+    ok "installed $(topic_files | wc -l | tr -d ' ') topics to ${TH_INSTALL_DIR/#$HOME/\~}"
+    note "every topic is installed; the manifest below decides which ones load"
 }
 
-install_runtime_powershell() {
-    mkdir -p "$1/powershell"
-    cp "$TH_DIR/powershell/TerminalHelp.ps1"           "$1/powershell/"
-    cp "$TH_DIR/powershell/profile-user.ps1.example"   "$1/powershell/"
-    cp "$TH_DIR/VERSION"                               "$1/"
+write_manifest() {  # write_manifest <topic>...
+    local manifest="$TH_INSTALL_DIR/selected"
+    { echo "# terminal-help topics — one per line."
+      echo "# Change with: th_topics enable <topic> / disable <topic> / all"
+      printf '%s\n' "$@"; } > "$manifest"
+    ok "selected: $*"
+    note "change it any time with th_topics — the clone is not needed again"
 }
 
-# Ask before touching anything. Declining must leave the file exactly as it
-# was — so the prompt comes BEFORE the block is stripped, never after.
-confirm() {  # confirm <question> ; default yes
-    if [ "$ASSUME_YES" -eq 1 ] || [ ! -t 0 ]; then
-        return 0
+# ~/.zshrc-help.d is the user's. help/user inside the installed tree is a
+# SYMLINK to it: the path is where you were told it would be, while the bytes
+# live outside anything the installer deletes. A symlink is removed by rm -rf,
+# never followed, so user content cannot be inside the blast radius.
+ensure_user_help_dir() {
+    if [ ! -d "$USER_HELP_DIR" ]; then
+        mkdir -p "$USER_HELP_DIR/extensions"
+        cat > "$USER_HELP_DIR/README.txt" <<'HELPDOC'
+Your own help lives here. Nothing in this directory is ever touched by a
+terminal-help upgrade. It is also reachable as ~/.terminal-help/help/user,
+which is a symlink to this directory.
+
+TWO THINGS YOU CAN DO
+=====================
+
+1. A TOPIC OF YOUR OWN — any *.help.sh, at any depth (work/, personal/, ...)
+
+   ~/.zshrc-help.d/work/deploy.help.sh
+   ------------------------------------
+   # TH_TOPIC: deploy
+   # TH_EMOJI: 🚀
+   # TH_DESC:  our deploy runbook
+
+   _th_help_deploy() {
+       th_head "🚀" "Deploy"
+       th_row  "Staging:" "./deploy.sh staging"
+       th_note "the flag you always forget goes here, where it is private"
+   }
+
+   → `get_deploy_help` prints it, and it is listed in get_help under 🧩 Yours.
+
+2. AN EXTENSION — add to a topic that ships with terminal-help
+
+   ~/.zshrc-help.d/extensions/git.help.sh
+   --------------------------------------
+   _th_ext_git_mine() {
+       th_sub "🔧" "My git shortcuts"
+       th_row "Fixup:" "git commit --fixup HEAD && git rebase -i --autosquash"
+   }
+   th_extend git _th_ext_git_mine
+
+   → `get_git_help` prints the built-in content, then yours. The package file
+     is not modified, so an upgrade cannot overwrite your additions and your
+     additions cannot go stale against the package.
+
+HELPERS: th_head, th_sub, th_row, th_note, th_text, th_warn, th_ok.
+
+CONTRIBUTING SOMETHING BACK: scripts/promote-extensions.sh in the clone
+collects your extensions into a report you can fold into the package by hand.
+HELPDOC
+        ok "created ${USER_HELP_DIR/#$HOME/\~}/ for your own help files"
+        note "a topic of your own, or an extension to a built-in — see README.txt"
+    else
+        ok "${USER_HELP_DIR##*/}/ already exists — ignored, it is yours ($(find "$USER_HELP_DIR" -name '*.help.sh' 2>/dev/null | wc -l | tr -d ' ') file(s))"
     fi
-    printf '  %s%s [Y/n]: %s' "$C_L" "$1" "$C_R"
-    local reply=""
-    read -r reply || true
-    say ""
-    case "$reply" in [Nn]*) return 1 ;; *) return 0 ;; esac
+
+    if [ "$LINK" -eq 0 ]; then
+        rm -rf "$TH_INSTALL_DIR/help/user"
+        ln -s "$USER_HELP_DIR" "$TH_INSTALL_DIR/help/user"
+    fi
 }
 
-# The block. Its first lines are the point: they tell whoever opens ~/.zshrc
-# where their own settings belong, which is not this file.
-rc_block() {
-    cat <<BLOCK
-$BEGIN_MARK
-# Put YOUR shell settings in ~/.zshrc-user.sh — aliases, exports, PATH, and
-# the get_user_info / user_on_load hooks. NOT in this file: everything between
-# these two markers is rewritten by terminal-help's installer.
-export TH_HOME="\$HOME/.terminal-help"
-export TH_USER_FILE="\${ZDOTDIR:-\$HOME}/.zshrc-user.sh"
-if [[ -r "\$TH_HOME/terminal-help.zsh" ]]; then
-    source "\$TH_HOME/terminal-help.zsh"   # the reference help
-    th_source_user                        # your settings, from \$TH_USER_FILE
-elif [[ -r "\$TH_USER_FILE" ]]; then
-    source "\$TH_USER_FILE"                # help absent — your settings still load
-fi
-$END_MARK
-BLOCK
-}
-
-# ~/.zshrc-user.sh belongs to the user, not to this installer.
-#
-# Created when it is absent. Otherwise IGNORED — not read, not parsed, not
-# copied, not backed up, not migrated, not diffed. Whatever is in it is none of
-# this script's business, which is what makes an upgrade safe to run blind.
 ensure_user_file() {
-    local user_file="$1"
-    if [ -e "$user_file" ]; then
-        ok "$(basename "$user_file") already exists — ignored, it is yours"
+    if [ -e "$USER_FILE" ]; then
+        ok "$(basename "$USER_FILE") already exists — ignored, it is yours"
         return 0
     fi
-    cat > "$user_file" <<'USERFILE'
+    cat > "$USER_FILE" <<'USERFILE'
 #!/usr/bin/env zsh
 #
 # ~/.zshrc-user.sh — your shell settings. This file is yours alone: nothing
@@ -236,209 +266,104 @@ ensure_user_file() {
 #   exports      export EDITOR="vim"
 #   PATH         path=("$HOME/.local/bin" $path)
 #
-# terminal-help also calls these two functions if you define them:
+# Two optional functions terminal-help calls if you define them:
 #
-#   get_user_info     your own reference sections, printed on demand
+#   get_user_info     your own reference section, printed on demand
 #   user_on_load      runs on every new shell (the only thing that prints
 #                     at startup besides the version line)
 #
-# For a worked example of both, see zshrc-user.sh.example in the
-# terminal-help clone.
+# Help CONTENT goes somewhere else: ~/.zshrc-help.d/ — see its README.txt.
 USERFILE
-    chmod 600 "$user_file" 2>/dev/null || true
-    ok "created $(basename "$user_file") (mode 600)"
-    note "it is yours from here on — this installer never reads or writes it again"
+    chmod 600 "$USER_FILE" 2>/dev/null || true
+    ok "created $(basename "$USER_FILE") (mode 600)"
 }
 
-# ~/.zshrc-help.d — where the user's own help files go. Created once, then
-# never touched: it is content, like the settings file, not program files.
-ensure_help_dir() {
-    local dir="$1"
-    if [ -d "$dir" ]; then
-        ok "$(basename "$dir")/ already exists — ignored, it is yours ($(ls "$dir"/*.help.sh 2>/dev/null | wc -l | tr -d ' ') help file(s))"
-        return 0
-    fi
-    mkdir -p "$dir"
-    # Named .txt on purpose: only *.help.sh is loaded, so the example sits
-    # there as documentation without becoming a section nobody asked for.
-    cat > "$dir/README.txt" <<'HELPDOC'
-Your own help sections go here.
-
-Any file named *.help.sh in this directory is sourced on every new shell, and
-this directory is never touched by a terminal-help upgrade.
-
-  ~/.zshrc-help.d/docker.help.sh
-  ------------------------------
-  th_register get_docker_info "🐳 Docker: build, run, compose"
-
-  get_docker_info() {
-      th_head "🐳" "Docker"
-      th_row  "Build:"   "docker build -t {name} ."
-      th_note "--platform linux/amd64 when the target is not an M-series Mac"
-      th_sub  "🧩" "Compose"
-      th_row  "Up:"      "docker compose up -d"
-  }
-
-Then `get_docker_info` prints it, and `get_help` lists it under 🧩 Yours.
-
-The th_register line is optional — a file that only defines get_*_info
-functions is still found and listed, by its filename. Registering just gives
-the row a better description.
-
-Helpers available: th_head, th_sub, th_row, th_note, th_text, th_warn, th_ok.
-
-Reusing a built-in name (a git.help.sh defining get_git_info) OVERRIDES the
-built-in rather than duplicating it — yours is loaded second and wins.
-HELPDOC
-    ok "created $(basename "$dir")/ for your own help files"
-    note "drop a *.help.sh in it — see $dir/README.txt"
+rc_block() {
+    cat <<BLOCK
+$BEGIN_MARK
+# Put YOUR shell settings in ~/.zshrc-user.sh, and your own help topics in
+# ~/.zshrc-help.d/. NOT in this file: everything between these two markers is
+# rewritten by terminal-help's installer.
+export TH_HOME="\$HOME/.terminal-help"
+export TH_USER_FILE="\${ZDOTDIR:-\$HOME}/.zshrc-user.sh"
+if [[ -r "\$TH_HOME/terminal-help.zsh" ]]; then
+    source "\$TH_HOME/terminal-help.zsh"   # the reference help
+    th_source_user                        # your settings, from \$TH_USER_FILE
+elif [[ -r "\$TH_USER_FILE" ]]; then
+    source "\$TH_USER_FILE"                # help absent — your settings still load
+fi
+$END_MARK
+BLOCK
 }
 
-install_zsh_target() {
-    local label="$1" emoji="$2"
-    head_ "$emoji  $label"
-
-    if ! command -v zsh >/dev/null 2>&1; then
-        warn "zsh is not installed."
-        case "$label" in
-            macOS) note "macOS ships zsh — check /bin/zsh, then: chsh -s /bin/zsh" ;;
-            *)     note "sudo apt install -y zsh   (or dnf/pacman/apk), then: chsh -s \$(which zsh)" ;;
-        esac
-    else
-        ok "zsh found: $(zsh --version 2>/dev/null | head -n1)"
-        case "${SHELL:-}" in
-            *zsh) ok "zsh is your login shell" ;;
-            *)    warn "your login shell is ${SHELL:-unset}"
-                  note "make it zsh with: chsh -s \$(command -v zsh)   (applies at next login)" ;;
-        esac
+strip_block() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    if grep -qF "$BEGIN_MARK" "$file" 2>/dev/null; then
+        cp "$file" "$file.terminal-help.bak"
+        awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
+            index($0, b) { skip=1 } !skip { print } index($0, e) { skip=0 }
+        ' "$file.terminal-help.bak" > "$file"
+        note "backed up $(basename "$file") to $(basename "$file").terminal-help.bak"
     fi
-
-    local home_dir="${ZDOTDIR:-$HOME}"
-    local rc="$home_dir/.zshrc"
-    local user_file="$home_dir/.zshrc-user.sh"
-
-    if [ "$UNINSTALL" -eq 1 ]; then
-        strip_block "$rc"
-        ok "removed the terminal-help block from $rc"
-        if [ -e "$TH_INSTALL_DIR" ]; then
-            rm -rf "$TH_INSTALL_DIR"
-            ok "removed the installed runtime at $TH_INSTALL_DIR"
-        fi
-        note "$user_file and $home_dir/.zshrc-help.d were left alone — they are yours"
-        return 0
-    fi
-
-    if ! confirm "Update $rc so terminal-help loads in every shell?"; then
-        note "nothing was changed. To wire it up by hand, add this to $rc:"
-        say ""
-        rc_block | sed "s/^/    ${C_L}/;s/\$/${C_R}/"
-        say ""
-        note "then create $user_file for your own settings"
-        return 0
-    fi
-
-    install_runtime
-    strip_block "$rc"
-    rc_block >> "$rc"
-    ok "added the terminal-help block to $rc"
-    ensure_user_file "$user_file"
-    ensure_help_dir "$home_dir/.zshrc-help.d"
-    note "open a new terminal, or run: source $rc"
-}
-
-# Best effort from WSL / Git Bash: find the Windows PowerShell profile.
-windows_profile_path() {
-    local base=""
-    if [ -n "${USERPROFILE:-}" ] && [ -d "$USERPROFILE" ]; then
-        base="$USERPROFILE"
-    elif [ -d /mnt/c/Users ]; then
-        local u="${WIN_USER:-${USER:-}}"
-        [ -d "/mnt/c/Users/$u" ] || u="$(ls /mnt/c/Users 2>/dev/null | grep -v -e '^Public$' -e '^Default' -e '^All Users$' | head -n1)"
-        [ -n "$u" ] && base="/mnt/c/Users/$u"
-    fi
-    [ -n "$base" ] || return 1
-    for d in "$base/OneDrive/Documents/PowerShell" "$base/Documents/PowerShell"; do
-        [ -d "$(dirname "$d")" ] && { echo "$d/Microsoft.PowerShell_profile.ps1"; return 0; }
-    done
-    return 1
-}
-
-install_windows_target() {
-    head_ "🪟  Windows (PowerShell)"
-
-    local win_dir="$TH_DIR"
-    command -v wslpath >/dev/null 2>&1 && win_dir="$(wslpath -w "$TH_DIR" 2>/dev/null || echo "$TH_DIR")"
-
-    local profile
-    if ! profile="$(windows_profile_path)"; then
-        warn "could not find your Windows PowerShell profile from here."
-        note "run this in PowerShell instead:"
-        say ""
-        say "    ${C_L}powershell -ExecutionPolicy Bypass -File \"$win_dir\\powershell\\install.ps1\"${C_R}"
-        say ""
-        note "or add these two lines to \$PROFILE by hand:"
-        say "    ${C_L}\$env:TH_HOME = Join-Path \$HOME \".terminal-help\"${C_R}"
-        say "    ${C_L}. \"\$env:TH_HOME\\powershell\\TerminalHelp.ps1\"${C_R}"
-        return 0
-    fi
-
-    if [ "$UNINSTALL" -eq 1 ]; then
-        strip_block "$profile"
-        ok "removed the terminal-help block from $profile"
-        return 0
-    fi
-
-    if ! confirm "Update $profile so terminal-help loads in every PowerShell?"; then
-        note "nothing was changed. Add these two lines to \$PROFILE by hand:"
-        say "    ${C_L}\$env:TH_HOME = Join-Path \$HOME \".terminal-help\"${C_R}"
-        say "    ${C_L}. \"\$env:TH_HOME\\powershell\\TerminalHelp.ps1\"${C_R}"
-        return 0
-    fi
-
-    mkdir -p "$(dirname "$profile")"
-    strip_block "$profile"
-
-    install_runtime_powershell "$TH_INSTALL_DIR"
-    ok "installed the PowerShell runtime to $TH_INSTALL_DIR"
-    {
-        printf '%s\n' "$BEGIN_MARK"
-        printf '# Put YOUR PowerShell settings in profile-user.ps1 beside this file.\n'
-        printf '$env:TH_HOME = Join-Path $HOME ".terminal-help"\n'
-        printf '. "$env:TH_HOME\\powershell\\TerminalHelp.ps1"\n'
-        printf '%s\n' "$END_MARK"
-    } >> "$profile"
-    ok "added the terminal-help block to $profile"
-    note "PowerShell must allow local scripts: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned"
 }
 
 # --- run -------------------------------------------------------------------
-if [ -z "$TARGETS" ]; then
-    SELECTED="$(choose_targets)"
-else
-    SELECTED="$(echo "$TARGETS" | tr ',' ' ')"
-    case "$SELECTED" in *all*) SELECTED="mac linux windows" ;; esac
-fi
+rc="$HOME_DIR/.zshrc"
 
-if [ -z "$SELECTED" ]; then
-    warn "nothing selected — nothing to do."
+if [ "$UNINSTALL" -eq 1 ]; then
+    head_ "🧰 terminal-help v$VERSION"
+    strip_block "$rc"
+    ok "removed the terminal-help block from $rc"
+    if [ -e "$TH_INSTALL_DIR" ]; then
+        rm -rf "$TH_INSTALL_DIR"        # help/user is a symlink: the target survives
+        ok "removed the installed runtime at ${TH_INSTALL_DIR/#$HOME/\~}"
+    fi
+    note "$USER_FILE and $USER_HELP_DIR were left alone — they are yours"
+    head_ "🏁 Done"
     exit 0
 fi
 
-DID_ZSH=0
-for t in $SELECTED; do
-    case "$t" in
-        mac)     install_zsh_target "macOS" "🍎"; DID_ZSH=1 ;;
-        linux)   [ "$DID_ZSH" -eq 1 ] && { note "Linux uses the same ~/.zshrc — already done."; continue; }
-                 install_zsh_target "Linux" "🐧"; DID_ZSH=1 ;;
-        windows) install_windows_target ;;
-        *)       warn "unknown target: $t" ;;
-    esac
-done
+if ! command -v zsh >/dev/null 2>&1; then
+    warn "zsh is not installed — terminal-help runs in zsh."
+    note "macOS ships it; on Linux: sudo apt install -y zsh (or dnf/pacman/apk)"
+fi
+
+SELECTED=()
+if [ "$WANT_ALL" -eq 1 ]; then
+    while IFS=$'\t' read -r n _ _ _; do SELECTED+=("$n"); done < <(catalogue)
+elif [ -n "$TOPICS_ARG" ]; then
+    for t in $(printf '%s' "$TOPICS_ARG" | tr ',' ' '); do SELECTED+=("$t"); done
+else
+    while IFS= read -r t; do [ -n "$t" ] && SELECTED+=("$t"); done < <(choose_topics)
+fi
+
+if [ "${#SELECTED[@]}" -eq 0 ]; then
+    warn "no topics selected — nothing to do."
+    exit 0
+fi
+
+head_ "🐚 zsh"
+case "${SHELL:-}" in
+    *zsh) ok "zsh is your login shell" ;;
+    *) warn "your login shell is ${SHELL:-unset}"
+       note "make it zsh with: chsh -s \$(command -v zsh)   (applies at next login)" ;;
+esac
+
+if ! confirm "Update $rc so terminal-help loads in every shell?"; then
+    note "nothing was changed. To wire it up by hand, add this to $rc:"
+    say ""; rc_block | sed "s/^/    ${C_L}/;s/\$/${C_R}/"; say ""
+    exit 0
+fi
+
+install_runtime
+write_manifest "${SELECTED[@]}"
+ensure_user_file
+ensure_user_help_dir
+strip_block "$rc"
+rc_block >> "$rc"
+ok "added the terminal-help block to $rc"
 
 head_ "🏁 Done"
-if [ "$UNINSTALL" -eq 1 ]; then
-    ok "terminal-help removed. The repository itself was not deleted."
-else
-    ok "terminal-help v$VERSION installed from $TH_DIR"
-    note "open a new shell, then type: get_help"
-fi
+ok "terminal-help v$VERSION installed"
+note "open a new shell, then type: get_help"

@@ -1,11 +1,12 @@
 #!/usr/bin/env zsh
 # 🐍 Python — the toolchain is uv. Do not use pip, venv or pyenv here.
+# TH_TOPIC: python
+# TH_EMOJI: 🐍
+# TH_DESC:  Python — uv, virtualenvs, uvicorn
+# TH_ALSO:  get_uv_help | 📦 | uv: projects, dependencies, venvs
+# TH_ALSO:  get_uvicorn_help | ⚡ | uvicorn and FastAPI launch lines
 
-th_register       get_python_info   "🐍 Python — with the two below"
-th_register_child get_uv_info       "📦 uv: projects, dependencies, venvs"
-th_register_child get_uvicorn_info  "⚡ uvicorn and FastAPI launch lines"
-
-get_python_info() {
+_th_help_python() {
     th_head "🐍" "Python"
     th_row "Install Python:"     "brew install python@3.13      (macOS)"
     th_row ""                    "sudo apt install python3      (Debian/Ubuntu)"
@@ -14,11 +15,11 @@ get_python_info() {
     th_note "uv installs and manages Python itself, so the system Python"
     th_note "does not have to be the right version — or exist at all"
     print -r --
-    get_uv_info
-    get_uvicorn_info
+    get_uv_help
+    get_uvicorn_help
 }
 
-get_uv_info() {
+get_uv_help() {
     th_sub "📦" "uv"
     th_row "New project:"        "uv init"
     th_note "writes pyproject.toml and .python-version"
@@ -34,7 +35,7 @@ get_uv_info() {
     th_row ""                    "uv python pin 3.13"
 }
 
-get_uvicorn_info() {
+get_uvicorn_help() {
     th_sub "⚡" "Uvicorn"
     th_row "What it is:"         "ASGI web server for Python (uvloop + httptools)"
     th_row "Development:"        "uv run uvicorn app:app --reload --port 8000"
