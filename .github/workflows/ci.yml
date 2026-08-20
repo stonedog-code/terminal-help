@@ -1,0 +1,42 @@
+# The merge gate for terminal-help.
+#
+# There are no tests and there cannot usefully be any: this code's job is to
+# print a cheat-sheet into an interactive terminal. What it can guarantee is
+# that nothing here is syntactically broken — which matters more than usual,
+# because lib/*.zsh is sourced from a real person's ~/.zshrc, so a syntax error
+# breaks their shell rather than a test run.
+name: CI
+
+on:
+  # Unscoped on purpose. `branches: [main]` would silently exempt a PR stacked
+  # on another branch — the one most likely to need checking.
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Never cancel a run on `main`: its result is the record of what the trunk
+  # actually does.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # The job id is the status-check context that branch protection requires, so
+  # keep it stable: renaming this job silently un-gates the branch, because
+  # protection goes on requiring a context that no longer reports.
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # zsh is NOT preinstalled on ubuntu-latest; pwsh is. check-syntax.sh
+      # treats a missing parser as a failure rather than a skip, so forgetting
+      # this step turns the gate red instead of quietly halving its coverage.
+      - name: Install zsh
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      - name: Gate — every shell file parses (zsh, bash, PowerShell)
+        run: bash scripts/check-syntax.sh
