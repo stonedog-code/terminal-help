@@ -89,7 +89,8 @@ get_user_help() {
         th_text "they go in your settings file, not in ~/.zshrc. It is loaded on"
         th_text "every shell, and a terminal-help upgrade never touches it."
         th_row "Your settings file:" "${TH_USER_FILE:-${ZDOTDIR:-$HOME}/.zshrc-user.sh}"
-        th_row "What can go in it:"  "cat \"${TH_HOME:-.}/zshrc-user.sh.example\""
+        th_row "What can go in it:"  "head -30 \"$file\""
+        th_note "its own header comments say what it can hold"
     fi
 }
 

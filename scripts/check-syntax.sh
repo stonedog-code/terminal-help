@@ -28,7 +28,7 @@ note() { printf '  %s\n' "$*"; }
 # quietly went from 13 files to 7 while still printing OK — the exact
 # green-over-an-empty-set failure this repo's rules warn about. The count in
 # the summary is what caught it, which is why the count is printed.
-zsh_files=(terminal-help.zsh lib/*.zsh help/*/*.help.sh zshrc-user.sh.example)
+zsh_files=(terminal-help.zsh lib/*.zsh help/*/*.help.sh)
 if ! command -v zsh > /dev/null 2>&1; then
   printf 'check-syntax: zsh is not installed, so %s zsh file(s) CANNOT be checked.\n' "${#zsh_files[@]}" >&2
   printf '              Install it (apt-get install zsh / brew install zsh) — a skipped\n' >&2

@@ -8,7 +8,7 @@ It runs in **zsh** — macOS, Linux, WSL — and prints exactly one line when a
 shell starts:
 
 ```
-🧰 terminal-help v0.10.0 · get_help
+🧰 terminal-help v0.11.0 · get_help
 ```
 
 Everything host-specific — your servers, your shares, your aliases — lives in
@@ -34,7 +34,7 @@ cd ~/src/terminal-help
 ```
 
 ```
-🧰 terminal-help v0.10.0
+🧰 terminal-help v0.11.0
   Which shells should it be installed for? Pick as many as apply.
 
     1  🍎  macOS       — adds a source line to ~/.zshrc
@@ -249,7 +249,7 @@ Define neither and the file is still doing its job — aliases, exports and
 functions need no hooks, and `get_help` says so rather than calling the file
 empty.
 
-`cat zshrc-user.sh.example` in the clone for a worked version of both.
+The file the installer creates carries its own instructions in comments — there is no separate example to copy from and get out of step with.
 
 **No secrets in it.** It is private, not encrypted: it sits in your home
 directory in plain text and every backup copies it. Passwords and tokens belong
@@ -264,7 +264,7 @@ the source line and it is read from there instead.
 
 | | |
 |---|---|
-| On every new shell | one line: `🧰 terminal-help v0.10.0 · get_help` |
+| On every new shell | one line: `🧰 terminal-help v0.11.0 · get_help` |
 | Plus | whatever *your* `user_on_load` chooses to print — nothing, by default |
 | Everything else | only when you ask for it by name |
 
@@ -288,7 +288,11 @@ Silence even the version line with `TH_QUIET=1` (put it in `~/.zshenv`, or
 | `get_python_help` | 🐍 Python — with the two below |
 | `get_uv_help` | 📦 `uv`: projects, dependencies, venvs |
 | `get_uvicorn_help` | ⚡ uvicorn and FastAPI launch lines |
-| `get_mac_help` | 🍎 Homebrew, Finder, clipboard |
+| `get_mac_help` | 🍎 keys, the default shell, Finder — then Homebrew |
+| `get_mac_keys_help` | ⌨️ moving the cursor: why Home is not Home on a Mac |
+| `get_homebrew_help` | 🍺 brew — upgrading, Brewfiles, services, what bites (`get_brew_help`) |
+| `get_claude_help` | 🤖 Claude Code — CLAUDE.md, settings.json, the CLI |
+| `get_copilot_help` | 🧑‍✈️ GitHub Copilot — instructions files, chat, `gh copilot` |
 | `get_linux_help` | 🐧 installing zsh, packages, services, ports |
 | `get_windows_help` | 🪟 winget, WSL, zsh on Windows |
 | `get_powershell_help` | 🔷 profile, execution policy, cmdlets from a Unix shell |
@@ -482,15 +486,14 @@ terminal-help/
 │   ├── help.zsh               ❓ get_help
 │   └── versions.zsh           📋 get_versions
 ├── help/                      the CONTENT — one file per topic
-│   ├── mac/ linux/ windows/   platforms
+│   ├── mac/ linux/ windows/   platforms (mac also carries homebrew)
 │   ├── powershell/            a shell you may not be running
-│   ├── technologies/          git, python, …
+│   ├── technologies/          git, python, claude, copilot
 │   └── user/                  → symlink to ~/.zshrc-help.d (created at install)
 ├── scripts/
 │   ├── check-syntax.sh        the gate
 │   └── promote-extensions.sh  your extensions → a contribution checklist
 ├── install.sh                 topic selection, then install to ~/.terminal-help
-├── zshrc-user.sh.example
 ├── VERSION
 └── LICENSE
 ```

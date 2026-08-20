@@ -15,7 +15,8 @@
 #     get_user_info     your own reference sections, printed on demand
 #     user_on_load      what to run on every new shell
 #
-# Start from zshrc-user.sh.example. Set TH_USER_FILE to keep it elsewhere.
+# The file the installer creates carries its own instructions in comments.
+# Set TH_USER_FILE to keep it somewhere else.
 
 # --- where am I ------------------------------------------------------------
 # %x is the file currently being sourced; :A resolves symlinks, :h takes the
