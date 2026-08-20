@@ -146,7 +146,8 @@ fi
 # executed. This does: line count, where it came from, and the git state of
 # that clone if it is one. Paste it and there is nothing left to guess.
 identity() {
-    local lines src desc dirty behind
+    local lines src desc dirty="" behind=""   # initialised: set -u is fatal otherwise,
+                                              # and the CLEAN case is the common one
     lines=$(wc -l < "$0"); lines=${lines// /}
     src=$TH_SOURCE_DIR
     printf '  %sinstall.sh: %s lines · %s%s\n' "$C_N" "$lines" "$src" "$C_R"

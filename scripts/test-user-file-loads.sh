@@ -79,6 +79,7 @@ echo
 
 write_user_file
 install_into_home
+cp "$H/.zshrc" "$TMP/zshrc.installed"     # pristine copy: later tests overwrite it
 grep -q 'terminal-help >>>' "$H/.zshrc" || { bad "install.sh did not write the block"; cat "$TMP/install.log"; exit 1; }
 
 if [ "$SELF_CHECK" -eq 1 ]; then
@@ -136,6 +137,19 @@ else
   bad "an old block loads nothing — the v0.12.0 regression is back"
   note "this is the exact failure: version line prints, your file does not"
 fi
+
+# --- 5b. RE-SOURCING ~/.zshrc must print your settings again.
+# The idempotence guard is per LOAD, not per shell. It used to survive into the
+# next `source ~/.zshrc`, so re-sourcing your rc printed the version line and
+# nothing else — terminal-help reloaded, your settings did not. Three separate
+# "it still does not print" reports were looking at exactly this.
+write_user_file
+cp "$TMP/zshrc.installed" "$H/.zshrc"     # test 5 replaced it with an old block
+out=$(HOME="$H" ZDOTDIR="$H" zsh -i -c 'source ~/.zshrc' 2>&1)
+n=$(count "$out" "$MARKER top-level")
+[ "$n" -ge 2 ] \
+  && ok "re-sourcing ~/.zshrc prints your settings again (seen $n times: startup + re-source)" \
+  || bad "re-sourcing ~/.zshrc printed your settings $n time(s) — expected 2"
 
 # --- 6. a failing LAST command is not an abort, and must not be reported as
 #        one; a real abort must be. 126 is the abort signature, measured.
