@@ -97,6 +97,19 @@ alias help_me=get_help
 # by hand? Call th_source_user yourself afterwards.
 TH_USER_FILE="${TH_USER_FILE:-${ZDOTDIR:-$HOME}/.zshrc-user.sh}"
 
+# Sourcing THIS file starts a fresh load, so forget that a previous load
+# already read the settings file.
+#
+# The guard below exists to stop ONE startup loading it twice — the installed
+# ~/.zshrc block calls th_source_user, and this file calls it too if nothing
+# else did. But the guard is a shell variable, so it survived into the next
+# `source ~/.zshrc`, and re-sourcing your rc printed the version line and
+# nothing else: terminal-help reloaded, your settings did not. That is not
+# idempotence, it is a stale flag — and it is what three reports of "it still
+# does not print" were actually looking at.
+TH_USER_SOURCED=""
+
+
 th_source_user() {
     [[ -n $TH_USER_SOURCED ]] && return 0      # idempotent: never load twice
 

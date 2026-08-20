@@ -86,6 +86,18 @@ else
   ok "the ~ in paths renders as ~, not \\~"
 fi
 
+# --- 2b. a CLEAN git clone must not trip `set -u` -------------------------
+# identity() reports whether install.sh is locally modified. `dirty` was only
+# ever assigned in the modified case, so on a clean clone `set -u` killed the
+# script before it did anything — and every local test happened to run on a
+# modified file. Run it from a pristine copy with a git dir present.
+out=$(docker run --rm -v "$REPO:/w:ro" "$IMAGE" sh -c '
+  cp -r /w /repo && cd /repo && mkdir -p .git && mkdir -p /home/t &&
+  HOME=/home/t bash ./install.sh --topics git --yes 2>&1; echo "EXIT=$?"' 2>&1)
+printf '%s' "$out" | grep -q 'unbound variable' \
+  && { bad "set -u killed the installer on a clean clone"; printf '%s\n' "$out" | tail -4 | sed 's/^/      /'; } \
+  || ok "a clean clone does not trip set -u"
+
 # --- 3. and the files it wrote are the ones we expect ---------------------
 out=$(docker run --rm -v "$REPO:/w:ro" "$IMAGE" sh -c '
   cp -r /w /repo && mkdir -p /home/t && cd /repo &&
