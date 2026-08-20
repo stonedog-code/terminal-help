@@ -1,9 +1,10 @@
 #!/usr/bin/env zsh
 # 🐧 Linux — installing zsh, package managers, services, ports.
+# TH_TOPIC: linux
+# TH_EMOJI: 🐧
+# TH_DESC:  Linux — installing zsh, packages, services, ports
 
-th_register get_linux_info   "🐧 Linux: installing zsh, packages, services"
-
-get_linux_info() {
+_th_help_linux() {
     th_head "🐧" "Linux"
     th_sub "🐚" "Install zsh and make it the default"
     th_row "Debian / Ubuntu:"    "sudo apt update && sudo apt install -y zsh"

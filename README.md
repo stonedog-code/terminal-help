@@ -4,16 +4,16 @@ A reference that lives in your shell. `get_help` prints the index; every
 section is a command away — git worktrees, the `gh` pull-request loop, `uv`,
 whatever you add yourself.
 
-It runs on **macOS**, **Linux** (zsh) and **Windows** (PowerShell), and it
-prints exactly one line when a shell starts:
+It runs in **zsh** — macOS, Linux, WSL — and prints exactly one line when a
+shell starts:
 
 ```
-🧰 terminal-help v0.8.0 · get_help
+🧰 terminal-help v0.9.0 · get_help
 ```
 
 Everything host-specific — your servers, your shares, your aliases — lives in
-`~/.zshrc-user.sh` (or `profile-user.ps1` beside your `$PROFILE`), a file this
-project **creates once and then never opens again**. Nothing personal is in the
+`~/.zshrc-user.sh`, a file this project **creates once and then never opens
+again**, plus `~/.zshrc-help.d/` for help you write yourself. Nothing personal is in the
 repository, which is what makes it publishable.
 
 ```
@@ -34,7 +34,7 @@ cd ~/src/terminal-help
 ```
 
 ```
-🧰 terminal-help v0.8.0
+🧰 terminal-help v0.9.0
   Which shells should it be installed for? Pick as many as apply.
 
     1  🍎  macOS       — adds a source line to ~/.zshrc
@@ -76,8 +76,8 @@ Then open a new terminal and type `get_help`.
 |---|---|---|
 | `~/.zshrc` | the marked block, ~10 lines | rewritten, nothing else |
 | `~/.zshrc-user.sh` | **yours** — aliases, exports, hooks | **never** |
-| `~/.zshrc-help.d/` | **yours** — your own `*.help.sh` sections | **never** |
-| `~/.terminal-help/` | the runtime: `terminal-help.zsh`, `lib/`, `help/`, `VERSION` | replaced |
+| `~/.zshrc-help.d/` | **yours** — topics and extensions, any depth | **never** |
+| `~/.terminal-help/` | the runtime: `lib/`, `help/`, `selected`, `VERSION` | replaced |
 | the clone | source. Needed to install and to upgrade, and at no other time | — |
 
 **The installer copies; it does not point at the clone.** That matters more than
@@ -111,12 +111,9 @@ never touched by an upgrade** — not read, not parsed, not merged, not backed
 up, not even opened. The installer creates it once, if it is missing, and after
 that has no business with it.
 
-**On Windows, run the PowerShell installer instead** (`install.sh` can only
-reach your `$PROFILE` from WSL, and will print this command if it cannot):
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\powershell\install.ps1
-```
+**On Windows, install inside WSL.** terminal-help is a zsh tool; there is no
+PowerShell edition to install. `get_powershell_help` gives you the PowerShell
+reference from the zsh side.
 
 ---
 
@@ -175,24 +172,8 @@ dpkg -x zsh_*.deb ~/local && dpkg -x zsh-common_*.deb ~/local
 <details>
 <summary>🪟 <b>Windows</b> — PowerShell, and how to get zsh</summary>
 
-**PowerShell** is the native route and needs no WSL:
-
-```powershell
-winget install --id Microsoft.PowerShell        # PowerShell 7; 5.1 works but is older
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-New-Item -ItemType File -Path $PROFILE -Force   # if you have no profile yet
-notepad $PROFILE
-```
-
-Add these two lines:
-
-```powershell
-$env:TH_HOME = "C:\src\terminal-help"
-. "$env:TH_HOME\powershell\TerminalHelp.ps1"
-```
-
-Reload with `. $PROFILE`. Without the execution-policy change a profile
-silently does not load, which looks exactly like a broken install.
+terminal-help runs in zsh, so on Windows it lives in WSL. PowerShell is
+covered as a *topic* (`get_powershell_help`), not as a second implementation.
 
 **zsh on Windows** has two honest answers, and a native Windows zsh is not one
 of them:
@@ -217,9 +198,10 @@ of them:
    Windows tools and MSYS tools disagree about what a path is. Git for Windows
    ships **bash**, not zsh, so Git Bash alone will not do.
 
-Running both WSL and PowerShell? Install both editions — `./install.sh` inside
-WSL and `install.ps1` in PowerShell. The command names are identical, so
-`get_git_info` works in either.
+Running both WSL and PowerShell? terminal-help installs in WSL only — it is a
+zsh tool. What it gives you on the PowerShell side is `get_powershell_help`:
+the profile, the execution policy, and the cmdlets worth knowing, read from
+your zsh prompt while you write PowerShell in the other window.
 </details>
 
 ---
@@ -269,11 +251,6 @@ empty.
 
 `cat zshrc-user.sh.example` in the clone for a worked version of both.
 
-**PowerShell works the same way**, with the file beside your `$PROFILE` —
-`profile-user.ps1`, resolved from `$PROFILE` rather than hardcoded, so it lands
-in `Documents\PowerShell` on Windows and `~/.config/powershell` on macOS and
-Linux. The hooks there are `Show-UserInfo` and `Invoke-UserOnLoad`.
-
 **No secrets in it.** It is private, not encrypted: it sits in your home
 directory in plain text and every backup copies it. Passwords and tokens belong
 in the login keychain, Credential Manager, or a password manager's CLI — read
@@ -287,7 +264,7 @@ the source line and it is read from there instead.
 
 | | |
 |---|---|
-| On every new shell | one line: `🧰 terminal-help v0.8.0 · get_help` |
+| On every new shell | one line: `🧰 terminal-help v0.9.0 · get_help` |
 | Plus | whatever *your* `user_on_load` chooses to print — nothing, by default |
 | Everything else | only when you ask for it by name |
 
@@ -296,108 +273,198 @@ Silence even the version line with `TH_QUIET=1` (put it in `~/.zshenv`, or
 
 ---
 
-## The sections
+## The topics
 
 | Command | |
 |---|---|
 | `get_help` | ❓ the index (alias: `help_me`) |
 | `get_versions` | 📋 OS, shell, python, uv, git, gh, node, brew |
-| `get_git_info` | 🌿 git — the three below, in order |
-| `get_git_branch_info` | 🌱 branch naming, Conventional Commits |
-| `get_git_worktree_info` | 🌳 worktrees, and the six rules that make them work |
-| `get_git_pr_info` | 🔀 the `gh` pull-request loop, reviewing, red checks |
-| `get_python_info` | 🐍 Python — with the two below |
-| `get_uv_info` | 📦 `uv`: projects, dependencies, venvs |
-| `get_uvicorn_info` | ⚡ uvicorn and FastAPI launch lines |
-| `get_mac_info` | 🍎 Homebrew, shares, Finder, clipboard |
-| `get_linux_info` | 🐧 installing zsh, packages, services, ports |
-| `get_windows_info` | 🪟 PowerShell, winget, WSL, zsh on Windows |
+| `th_topics` | 🗂 what is selected, and turn topics on or off |
+| `get_git_help` | 🌿 git — with the three below |
+| `get_git_branch_help` | 🌱 branch naming, Conventional Commits |
+| `get_git_worktree_help` | 🌳 worktrees, and the six rules that make them work |
+| `get_git_pr_help` | 🔀 the `gh` pull-request loop, reviewing, red checks |
+| `get_python_help` | 🐍 Python — with the two below |
+| `get_uv_help` | 📦 `uv`: projects, dependencies, venvs |
+| `get_uvicorn_help` | ⚡ uvicorn and FastAPI launch lines |
+| `get_mac_help` | 🍎 Homebrew, Finder, clipboard |
+| `get_linux_help` | 🐧 installing zsh, packages, services, ports |
+| `get_windows_help` | 🪟 winget, WSL, zsh on Windows |
+| `get_powershell_help` | 🔷 profile, execution policy, cmdlets from a Unix shell |
 | `get_user_info` | 🔒 yours, from `~/.zshrc-user.sh` |
 
----
+Only selected topics are defined; `th_topics` shows the rest.
 
-## 🧩 Adding your own help — drop a file in a folder
+## 🗂 The catalogue: one folder, one format
 
-Help content is **one file per topic**, and yours live in a directory the
-installer creates and then never touches again:
+All help lives under `help/`, one file per topic, every file the same shape
+whatever it is about:
 
 ```
-~/.zshrc-help.d/docker.help.sh
+help/
+├── mac/mac.help.sh                🍎  platforms
+├── linux/linux.help.sh            🐧
+├── windows/windows.help.sh        🪟
+├── powershell/powershell.help.sh  🔷  a shell you may not be running
+├── technologies/git.help.sh       🌿  tools, one file each
+├── technologies/python.help.sh    🐍
+└── user/                          🧩  YOURS — a symlink to ~/.zshrc-help.d
 ```
+
+A file declares itself in a header comment, and that header is the only
+metadata anywhere — the installer (bash) and the loader (zsh) read the same
+three lines:
 
 ```zsh
-th_register get_docker_info "🐳 Docker: build, run, compose"
+# TH_TOPIC: git
+# TH_EMOJI: 🌿
+# TH_DESC:  git — everyday commands, branches, worktrees, pull requests
+# TH_ALSO:  get_git_worktree_help | 🌳 | worktrees, and the rules
 
-get_docker_info() {
-    th_head "🐳" "Docker"
-    th_row  "Build:"    "docker build -t {name} ."
-    th_note "--platform linux/amd64 when the target is not an M-series Mac"
-    th_sub  "🧩" "Compose"
-    th_row  "Up:"       "docker compose up -d"
+_th_help_git() {
+    th_head "🌿" "Git"
+    th_row  "Where am I:" "git status -sb"
 }
 ```
 
-Open a new shell and `get_docker_info` prints it, styled like everything else.
-`get_help` lists it under **🧩 Yours**. There is no index to edit and nothing to
-register with the project — the file existing *is* the registration.
+`get_git_help` is **generated** from that header. You never write it, which is
+what lets someone else extend your topic without editing your file.
 
-- **`th_register` is optional.** A file that only defines `get_*_info`
-  functions is still found and listed, labelled with its filename. Registering
-  just gives the row a better description.
-- **Reusing a built-in name overrides it.** A `git.help.sh` of your own that
-  defines `get_git_info` replaces the shipped section rather than duplicating
-  it — yours loads second and wins, and the index row is updated in place.
-- **Helpers available to you:** `th_head`, `th_sub`, `th_row`, `th_note`,
-  `th_text`, `th_warn`, `th_ok`. The value of a section is in the `↳` notes:
-  anyone can look up `docker build`; what is worth writing down is the flag
-  whose absence costs an hour.
-- **`README.txt` in that directory** repeats all of this, for the version of you
-  that finds the folder six months from now.
+**PowerShell is content, not a runtime.** terminal-help does not run in
+PowerShell; `get_powershell_help` is a reference — the profile, execution
+policy, the cmdlets worth knowing from a Unix shell — that you read from zsh.
 
-**PowerShell is the same**, with `profile-help.d\*.help.ps1` beside your
-`$PROFILE`, `Show-*` function names, and `Write-Th*` helpers. Note the built-in
-PowerShell sections still live in one `TerminalHelp.ps1` rather than one file
-per topic — the drop-in mechanism is identical, the built-ins are not yet split.
+## ✅ Choosing your topics
 
-### Changing a section that ships with terminal-help
+`./install.sh` asks which ones you want:
 
-Those live in `help/*.help.sh` in the clone, one file per topic, each
-registering its own sections at the top. Add a file there and it is picked up
-the same way — the loader globs the directory. `lib/` is machinery (styling,
-the registry, `get_help` itself) and is a different kind of thing.
+```
+     1  🐧  linux        Linux — installing zsh, packages, services, ports
+     2  🍎  mac          macOS — Homebrew, the default shell, Finder
+     3  🔷  powershell   PowerShell — profile, execution policy, cmdlets
+     4  🌿  git          git — everyday commands, branches, worktrees, PRs
+     5  🐍  python       Python — uv, virtualenvs, uvicorn
+     6  🪟  windows      Windows — winget, WSL, and getting zsh onto the machine
+
+  Numbers (comma or space separated), "a" for all [linux git python]:
+```
+
+Pick `4` and `get_git_help` works. The default is your platform plus the
+common technologies.
+
+**Everything is installed either way; the selection decides what loads.** That
+matters six months later: `th_topics enable mac` turns one on in a second, with
+no clone, no network, and no reinstall — the usual way that goes wrong is a tool
+that only copied what you asked for and then needs the original download back.
+
+```
+th_topics                    # what exists, ✅ selected, ⬜ idle
+th_topics enable powershell
+th_topics disable windows
+th_topics all
+```
+
+`get_help` lists what is idle rather than pretending it does not exist.
+
+## 🧩 Your own help, and extending the built-ins
+
+Everything of yours lives in `~/.zshrc-help.d/` — created once by the
+installer, **never touched again**, and reachable from inside the tree as
+`~/.terminal-help/help/user` (a symlink; see the note below).
+
+**A topic of your own** — any `*.help.sh`, at any depth, so you can keep
+folders:
+
+```zsh
+# ~/.zshrc-help.d/work/deploy.help.sh
+# TH_TOPIC: deploy
+# TH_EMOJI: 🚀
+# TH_DESC:  our deploy runbook
+
+_th_help_deploy() {
+    th_head "🚀" "Deploy"
+    th_row  "Staging:" "./deploy.sh staging"
+    th_note "the flag you always forget goes here, where it is private"
+}
+```
+
+`get_deploy_help` prints it; `get_help` lists it under 🧩 Yours.
+
+**An extension** — add to a topic that ships with terminal-help, without
+touching the package file:
+
+```zsh
+# ~/.zshrc-help.d/extensions/git.help.sh
+_th_ext_git_mine() {
+    th_sub "🔧" "My git shortcuts"
+    th_row "Fixup:" "git commit --fixup HEAD && git rebase -i --autosquash"
+}
+th_extend git _th_ext_git_mine
+```
+
+`get_git_help` now prints the built-in content **and then yours**. This is the
+whole point of generating the entry point: your rows are appended to a hook
+list, so upgrading the package cannot overwrite your additions, and your
+additions cannot go stale against a package file you copied and edited.
+`get_help` marks the topic *"extended by one of your own files"*.
+
+### Why `help/user` is a symlink
+
+You asked for your files to sit under `help/user/`, and they do. But the
+installer replaces the shipped categories wholesale on every upgrade, and user
+data inside a directory something `rm -rf`s is one wrong glob away from being
+deleted. So the path is real and the bytes are not in it: `help/user` points at
+`~/.zshrc-help.d`, and `rm -rf` deletes a symlink rather than following it.
+Both paths work; only one of them can ever be in the blast radius.
+
+## 📤 Contributing an extension back
+
+Wrote something worth sharing? In the clone:
+
+```sh
+scripts/promote-extensions.sh          # writes PROMOTIONS.md
+scripts/promote-extensions.sh --stdout
+```
+
+It collects every file in `~/.zshrc-help.d/extensions/`, works out which
+packaged topic each one extends and which file that is, and writes a checklist
+with the content ready to fold in.
+
+**It edits no code, deliberately.** The obvious version of this script would
+splice your function body into `_th_help_git`. Shell has no parser here, so
+that means matching a closing brace with a regex — which breaks on a nested
+function, a `case`, a brace inside a string, or `function f {`. A bad splice
+corrupts the topic for everyone who installs next. A report a human folds in is
+slower exactly once and never wrong.
 
 ## Layout
 
 ```
 terminal-help/
-├── terminal-help.zsh          the loader — resolves paths, loads lib/, defines th_source_user
+├── terminal-help.zsh          the loader
 ├── lib/                       the machinery
-│   ├── ui.zsh                 colour, layout helpers, and the section registry
-│   └── help.zsh               ❓ get_help, built from the registry
+│   ├── ui.zsh                 colour and layout helpers
+│   ├── topics.zsh             the catalogue: headers, selection, extensions
+│   ├── help.zsh               ❓ get_help
+│   └── versions.zsh           📋 get_versions
 ├── help/                      the CONTENT — one file per topic
-│   ├── git.help.sh            🌿 git, branches, worktrees, PRs
-│   ├── python.help.sh         🐍 python, uv, uvicorn
-│   ├── mac.help.sh            🍎 macOS
-│   ├── linux.help.sh          🐧 Linux
-│   ├── windows.help.sh        🪟 Windows and PowerShell
-│   └── versions.help.sh       📋 what is installed
-├── powershell/
-│   ├── TerminalHelp.ps1       the PowerShell edition, same commands
-│   ├── install.ps1            adds the block to $PROFILE
-│   └── profile-user.ps1.example   a worked example of ~/…/profile-user.ps1
-├── zshrc-user.sh.example      a worked example of ~/.zshrc-user.sh
-├── install.sh                 the multi-select installer (copies to ~/.terminal-help)
-├── .zshrc                     an example ~/.zshrc, if you would rather symlink one
+│   ├── mac/ linux/ windows/   platforms
+│   ├── powershell/            a shell you may not be running
+│   ├── technologies/          git, python, …
+│   └── user/                  → symlink to ~/.zshrc-help.d (created at install)
+├── scripts/
+│   ├── check-syntax.sh        the gate
+│   └── promote-extensions.sh  your extensions → a contribution checklist
+├── install.sh                 topic selection, then install to ~/.terminal-help
+├── zshrc-user.sh.example
 ├── VERSION
 └── LICENSE
 ```
 
----
-
 ## Colour and emoji
 
 256-colour ANSI, one palette in `lib/ui.zsh`. Colour is decided **per call**,
-not once at load, so `get_git_info | less` and `get_git_info > notes.txt` come
+not once at load, so `get_git_help | less` and `get_git_help > notes.txt` come
 out clean rather than full of escape codes.
 
 - `NO_COLOR=1` or `TH_NO_COLOR=1` turns it off ([no-color.org](https://no-color.org)).
@@ -409,58 +476,34 @@ out clean rather than full of escape codes.
 
 ## Verified
 
-Run against real interpreters, not eyeballed:
+Run against a real zsh 5.9, not eyeballed:
 
-- **zsh 5.9** and **PowerShell 7.4** — every section rendered without error in
-  both editions, and a new interactive shell printing exactly one line.
-- **Colour, in four directions** — escapes present on a tty; absent when piped,
-  absent under `NO_COLOR=1`, absent under `TERM=dumb`. Worth stating, because
-  the first implementation resolved colours inside `$( )`, where stdout is a
-  pipe: every colour came back empty and the output looked like a deliberate
-  monochrome theme. Checking only that it *rendered* would have missed it.
-- **`install.sh`, interactively, on a pty** — the menu answered with `1`, `4`
-  and an empty line. This is where the first release broke: the menu was
-  written to stdout, which the caller captures, so every word of it came back
-  as a selection (`⚠ unknown target: Which`). Only `--targets` had been
-  exercised, and that path skips the menu entirely — the test was green because
-  it never ran the broken code. The menu now goes to stderr.
-- **`install.sh`** — installs into an existing `~/.zshrc`, a re-run leaves one
-  block rather than two, and `--uninstall` restores the original file byte for
-  byte (`cmp`, not inspection). Same three for `install.ps1` against a real
-  `$PROFILE`.
-- **The upgrade path** — with a populated `~/.zshrc-user.sh` in place, a re-run
-  leaves its md5 **and its mtime** unchanged and creates no `.bak` beside it.
-  Both editions.
-- **Declining the prompt** — `~/.zshrc` byte-identical afterwards, no settings
-  file created, no backup left behind.
-- **Drop-in help files** — a registered file, a file that never calls
-  `th_register`, and a file overriding a built-in: all three load, run, and
-  appear in `get_help` exactly once. Surviving an upgrade checked by md5.
-- **Installed, then the clone deleted** — the decisive test for v0.8.0. After
-  `rm -rf` on the source clone, a real zsh and a real `pwsh` both still print
-  the version line, load `~/.zshrc-user.sh`, run `user_on_load`, and render
-  `get_user_info`. Nothing outside `$HOME` is referenced at runtime.
-- **Both live rc paths** — a real interactive zsh started through the installed
-  block, and through the symlinked `.zshrc`, with hooks, aliases and
-  `user_on_load` all working. Same for a real `pwsh` session through the
-  installed `$PROFILE`. That last one caught a scope bug: dot-sourcing the
-  user file *inside a function* traps the user's functions in that function's
-  scope, so they vanish when it returns. PowerShell loads it at script scope
-  now; the comment in `TerminalHelp.ps1` explains why.
-- **The private half** — hooks load from `~/.zshrc-user.sh` /
-  `profile-user.ps1`, `get_help` distinguishes four states (not loaded, empty,
-  content but no hooks, hooks defined), and `th_source_user` is idempotent:
-  called three times, `user_on_load` still runs once.
-- **Nothing shipped is specific to one machine.** The sections describe tools
-  anyone has — git, uv, brew, winget, systemd — not one person's hosts, shares
-  or workflow. Anything that only made sense for one setup was removed rather
-  than genericised into vagueness.
+- **The catalogue** — every topic file parses and renders; `get_help` is built
+  from the headers, and the index matches what is actually loaded.
+- **Selection** — a manifest of three topics loads exactly those three, with the
+  rest reported as idle. `th_topics enable powershell` turns one on **after the
+  source clone was deleted**, which is the case that matters.
+- **Extensions** — an `extensions/git.help.sh` appends to the built-in git
+  topic; `get_git_help` prints the package content and then the user's; a
+  re-install from a fresh package leaves the file's md5 unchanged and the
+  extension still working.
+- **A user topic of their own** — `~/.zshrc-help.d/work/deploy.help.sh` with a
+  header becomes `get_deploy_help`, listed under 🧩 Yours.
+- **Installed, then the clone deleted** — a real interactive zsh still prints
+  the version line, loads `~/.zshrc-user.sh`, runs `user_on_load`, and renders
+  every selected topic. Nothing outside `$HOME` is referenced at runtime.
+- **The installer** — the topic menu on a pty (numbers, `a`, empty for the
+  default), decline leaves `~/.zshrc` byte-identical, re-install leaves one
+  block, uninstall removes the runtime and keeps both of your directories.
+- **The gate** — `bash scripts/check-syntax.sh`: 15 files, exit 0, and proved
+  non-vacuous by planting a syntax error in a help file and watching it fail.
+- **Colour, in four directions** — present on a tty; absent when piped, under
+  `NO_COLOR`, and under `TERM=dumb`.
 
-**Not verified:** macOS itself — there is no Mac in the loop, so `mount_smbfs`,
-`diskutil` and `sw_vers` are unexercised; Windows PowerShell 5.1 (7.4 only);
-and emoji rendering in any particular terminal.
-
----
+**Not verified:** macOS itself — there is no Mac in the loop, so `brew`,
+`defaults` and the mac topic's commands are unexercised as *commands* (the file
+parses and renders); and the CI gate has still never executed on GitHub's
+runners, because the org's Actions account is billing-locked.
 
 ## Design notes
 

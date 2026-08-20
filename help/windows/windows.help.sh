@@ -1,9 +1,10 @@
 #!/usr/bin/env zsh
 # 🪟 Windows — PowerShell, winget, WSL, and getting zsh onto the machine.
+# TH_TOPIC: windows
+# TH_EMOJI: 🪟
+# TH_DESC:  Windows — winget, WSL, and getting zsh onto the machine
 
-th_register get_windows_info "🪟 Windows: PowerShell, winget, WSL, zsh"
-
-get_windows_info() {
+_th_help_windows() {
     th_head "🪟" "Windows and PowerShell"
     th_sub "🐚" "Two ways to get zsh on Windows"
     th_text "There is no native Windows zsh worth running. Pick one:"
@@ -14,16 +15,8 @@ get_windows_info() {
     th_note "Git for Windows ships bash, not zsh; MSYS2 can add zsh but the"
     th_note "PATH is a hybrid and Windows tools see different paths than it does"
     print -r --
-    th_sub "🔷" "PowerShell"
-    th_row "Install PowerShell 7:" "winget install --id Microsoft.PowerShell"
-    th_note "the built-in 'Windows PowerShell 5.1' is a different, older shell"
-    th_row "Your profile path:"  "\$PROFILE"
-    th_note "usually Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1"
-    th_row "Create it:"          "New-Item -ItemType File -Path \$PROFILE -Force"
-    th_row "Edit it:"            "notepad \$PROFILE"
-    th_row "Reload it:"          ". \$PROFILE"
-    th_row "Allow local scripts:" "Set-ExecutionPolicy -Scope CurrentUser RemoteSigned"
-    th_note "without this a downloaded profile silently does not load"
+    th_row "PowerShell help:"    "get_powershell_help"
+    th_note "the profile, execution policy and cmdlets are their own topic"
     print -r --
     th_sub "📦" "winget and everyday commands"
     th_row "Search / install:"   "winget search {name}   ·   winget install {id}"
