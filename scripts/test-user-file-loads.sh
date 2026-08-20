@@ -23,6 +23,20 @@
 
 set -uo pipefail
 
+# THE ENVIRONMENT MUST NOT LEAK IN. terminal-help EXPORTS TH_HOME, TH_VERSION
+# and TH_USER_FILE, so every shell on a machine where it is installed hands
+# them to its children — including the zsh this suite starts. TH_USER_FILE is
+# honoured when already set (that is the documented "keep it elsewhere"
+# feature), so the shell under test read the developer's REAL settings file
+# instead of the throwaway one, found no marker in it, and failed the old-block
+# assertion on a perfectly healthy tree.
+#
+# Measured 2026-08-20 on identical code: 16 passed / 1 failed on a machine with
+# terminal-help installed, 17 / 0 in CI, which has no TH_* set. That is the
+# worst shape a red can take — it looks like the branch, and it is the suite.
+unset TH_HOME TH_VERSION TH_USER_FILE TH_SELECTED TH_USER_HELP_DIR \
+      TH_QUIET TH_NO_COLOR TH_NO_RELAUNCH
+
 REPO=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 SELF_CHECK=0
 [ "${1:-}" = "--self-check" ] && SELF_CHECK=1
@@ -90,6 +104,23 @@ if [ "$SELF_CHECK" -eq 1 ]; then
   echo "  [self-check] removed the loader's fallback from the installed runtime"
   echo
 fi
+
+# --- 0. the suite is hermetic ---------------------------------------------
+# Asserted rather than assumed, because the leak above is invisible: every
+# other assertion still runs, and one of them simply reports the wrong answer.
+# Probed by sourcing the RUNTIME directly, with no rc block: the installed
+# block sets `export TH_USER_FILE=...` itself, which masks an inherited value
+# and made the first version of this assertion pass with the leak still there.
+# The path that honours the environment is TH_USER_FILE="${TH_USER_FILE:-...}"
+# in terminal-help.zsh, and that is what this reaches.
+out=$(HOME="$H" ZDOTDIR="$H" zsh -f -c 'source "$HOME/.terminal-help/terminal-help.zsh" > /dev/null 2>&1; print "TH_USER_FILE=$TH_USER_FILE"' 2>&1)
+case "$out" in
+  *"TH_USER_FILE=$H/"*)
+    ok "the shell under test resolves ITS OWN settings file, not yours" ;;
+  *)
+    bad "the environment leaked into the throwaway HOME"
+    note "expected TH_USER_FILE under $H, got:"; printf '%s\n' "$out" | sed 's/^/      /' ;;
+esac
 
 # --- 1. the exact thing the user typed ------------------------------------
 out=$(run_zsh --source-only)
