@@ -563,6 +563,25 @@ terminal-help/
 └── LICENSE
 ```
 
+## Narrow terminals
+
+Descriptions wrap **into the description column**, not at the left margin:
+
+```
+  get_git_help             🌿 git — everyday commands, branches, worktrees, pull
+                           requests
+```
+
+Width comes from `$COLUMNS`, which zsh keeps current across a resize; 80 when
+there is no terminal. Below about 50 columns the two-column layout is abandoned
+rather than squeezed — the label gets its own line. A single unbreakable word
+is left to overflow instead of being split, because these are commands and a
+command broken across lines is a command you cannot copy.
+
+Measured in **display width** (`${(m)#s}`), not characters: an emoji is one
+character and two columns, and measuring characters puts every line containing
+one a column past the edge — exactly the wrap this is meant to prevent.
+
 ## Colour and emoji
 
 256-colour ANSI, one palette in `lib/ui.zsh`. Colour is decided **per call**,
