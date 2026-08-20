@@ -13,10 +13,81 @@
 #
 # terminal-help runs in zsh only. PowerShell is a HELP TOPIC here, not a
 # runtime: `get_powershell_help` is a reference you read from your own shell.
+#
+# RUNNING FROM A NETWORK SHARE IS FINE. This script copies itself and the files
+# it needs to local disk, verifies the copy, and re-executes from there — see
+# "relaunch" below for why that is not paranoia.
 
 set -uo pipefail
 
 TH_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+TH_SOURCE_DIR="${TH_SOURCE_DIR:-$TH_DIR}"
+
+# --- relaunch from local disk ----------------------------------------------
+# bash reads a script INCREMENTALLY as it runs it. On a network share — SMB,
+# NFS, a synced folder — the bytes can change or arrive short between one read
+# and the next, and what you get is a script that does most of its work and
+# then dies at EOF inside an unterminated string:
+#
+#     ./install.sh: line 371: unexpected EOF while looking for matching `"'
+#
+# That is a real report from an SMB-mounted clone, and it reads as a bug in the
+# installer rather than as a half-read file. So: copy what we need to a private
+# temp directory, CHECK the copy is whole, and hand over to it. From that point
+# every read is local, and the share cannot change under us.
+#
+# TH_NO_RELAUNCH=1 skips this (for debugging the script itself).
+if [ -z "${TH_LOCAL_COPY:-}" ] && [ "${TH_NO_RELAUNCH:-0}" != "1" ]; then
+    _th_tmp=$(mktemp -d "${TMPDIR:-/tmp}/terminal-help.XXXXXX") || {
+        printf 'install.sh: cannot create a temp directory to copy myself into\n' >&2
+        exit 1
+    }
+
+    _th_copy_ok=0
+    for _th_try in 1 2 3; do
+        _th_missing=""
+        # Copy THIS file — the one that was invoked — not whatever install.sh
+        # happens to sit beside it. Otherwise running a renamed or partial copy
+        # silently gets the intact original substituted underneath you, and the
+        # truncation check has nothing left to catch.
+        cp "$TH_DIR/$(basename "${BASH_SOURCE[0]}")" "$_th_tmp/install.sh" 2>/dev/null \
+            || _th_missing="$_th_missing $(basename "${BASH_SOURCE[0]}")"
+        for _th_item in VERSION terminal-help.zsh lib help; do
+            cp -R "$TH_DIR/$_th_item" "$_th_tmp/" 2>/dev/null || _th_missing="$_th_missing $_th_item"
+        done
+        if [ -n "$_th_missing" ]; then
+            printf 'install.sh: could not copy from %s:%s\n' "$TH_DIR" "$_th_missing" >&2
+            rm -rf "$_th_tmp"; exit 1
+        fi
+        # Whole? The sentinel is the last line, and bash must accept the file.
+        # A short read fails one or both, and retrying often gets a good copy
+        # because the second read comes from a settled cache.
+        if [ "$(tail -n 1 "$_th_tmp/install.sh" 2>/dev/null)" = "# END-OF-INSTALLER" ] \
+           && bash -n "$_th_tmp/install.sh" 2>/dev/null; then
+            _th_copy_ok=1
+            break
+        fi
+        sleep 1
+    done
+
+    if [ "$_th_copy_ok" -ne 1 ]; then
+        printf '\n  ⚠  TRUNCATED: could not get a complete copy of install.sh from\n' >&2
+        printf '     %s\n' "$TH_DIR" >&2
+        printf '     after 3 attempts. The file arrives truncated, which happens when a\n' >&2
+        printf '     network share serves a stale or partial cache.\n\n' >&2
+        printf '     Try: git -C "%s" checkout -- install.sh\n' "$TH_DIR" >&2
+        printf '     or unmount and remount the share, or clone to local disk.\n\n' >&2
+        rm -rf "$_th_tmp"
+        exit 1
+    fi
+
+    TH_LOCAL_COPY=1 TH_SOURCE_DIR="$TH_DIR" TH_TMP_DIR="$_th_tmp" \
+        exec bash "$_th_tmp/install.sh" "$@"
+fi
+
+# The relaunched copy owns the temp directory and removes it however it exits.
+[ -n "${TH_TMP_DIR:-}" ] && trap 'rm -rf "$TH_TMP_DIR"' EXIT
+
 VERSION="$(cat "$TH_DIR/VERSION" 2>/dev/null || echo unknown)"
 BEGIN_MARK="# >>> terminal-help >>>"
 END_MARK="# <<< terminal-help <<<"
@@ -174,9 +245,10 @@ install_runtime() {
     if [ "$LINK" -eq 1 ]; then
         [ -e "$TH_INSTALL_DIR" ] && [ ! -L "$TH_INSTALL_DIR" ] && rm -rf "$TH_INSTALL_DIR"
         rm -f "$TH_INSTALL_DIR"
-        ln -s "$TH_DIR" "$TH_INSTALL_DIR"
-        ok "linked $TH_INSTALL_DIR → $TH_DIR"
-        note "--link: edits in the clone are live. The clone must never move."
+        ln -s "$TH_SOURCE_DIR" "$TH_INSTALL_DIR"
+        ok "linked $TH_INSTALL_DIR → $TH_SOURCE_DIR"
+        note "--link: edits in the clone are live. The clone must never move,"
+        note "and a clone on a network share must stay mounted."
         return 0
     fi
 

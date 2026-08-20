@@ -105,6 +105,32 @@ silent and baffling: the version line still prints while nothing of yours does.
 instead of copying it, so edits are live. Only do that on a machine where the
 clone is permanent.
 
+### Running it from a network share
+
+Fine, and specifically supported. `install.sh` copies itself and the files it
+needs to a private temp directory, **verifies the copy is whole**, re-executes
+from there, and deletes it on the way out.
+
+That is not tidiness. bash reads a script *incrementally as it runs it*, so a
+file that changes or arrives short between two reads produces a script that
+does most of its work and then dies:
+
+```
+./install.sh: line 371: unexpected EOF while looking for matching `"'
+```
+
+which reads as a bug in the installer rather than as a half-read file. From a
+share — SMB, NFS, a synced folder — that is a real possibility, and it happened
+here. After the relaunch every read is local and the share cannot change
+underneath it; truncating the source *mid-install* is now survivable, and
+tested.
+
+If the copy still comes back short after three attempts, it says `TRUNCATED`,
+names the likely cause, gives the fix, and changes nothing.
+
+`TH_NO_RELAUNCH=1` skips it, for debugging the script itself. `--link` still
+points at your real clone, not the temp copy.
+
 ### Upgrading
 
 ```sh

@@ -103,9 +103,11 @@ printf '%s' "$out" | grep -qx 'mac' && ok "the manifest holds the chosen topics"
 out=$(docker run --rm -v "$REPO:/w:ro" "$IMAGE" sh -c '
   cp -r /w /repo && cd /repo && head -c -12 install.sh > part.sh &&
   mkdir -p /home/t && HOME=/home/t bash ./part.sh --topics git --yes 2>&1' 2>&1)
+# Either guard may fire first — the relaunch verifying its copy, or the
+# sentinel check in the relaunched copy. Both say TRUNCATED and both refuse.
 printf '%s' "$out" | grep -q 'TRUNCATED' \
   && ok "a truncated installer is caught before it does anything" \
-  || bad "a truncated installer was NOT caught"
+  || { bad "a truncated installer was NOT caught"; printf '%s\n' "$out" | tail -6 | sed 's/^/      /'; }
 printf '%s' "$out" | grep -q 'added the terminal-help block' \
   && bad "...but it still modified ~/.zshrc, which it must not" \
   || ok "...and it changed nothing"
