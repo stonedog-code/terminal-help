@@ -13,6 +13,7 @@
 th_doctor() {
     th_head "🩺" "terminal-help doctor"
 
+    local l                       # shared loop variable: see the note below
     local rc="${ZDOTDIR:-$HOME}/.zshrc"
     local user_file="${TH_USER_FILE:-${ZDOTDIR:-$HOME}/.zshrc-user.sh}"
     local help_dir="${TH_USER_HELP_DIR:-${ZDOTDIR:-$HOME}/.zshrc-help.d}"
@@ -72,8 +73,7 @@ th_doctor() {
             (( problems++ ))
         else
             th_text "first executable lines:"
-            local l
-            for l in ${(f)"$(grep -vE '^[[:space:]]*(#|$)' "$user_file" 2>/dev/null | head -3)"}; do
+                for l in ${(f)"$(grep -vE '^[[:space:]]*(#|$)' "$user_file" 2>/dev/null | head -3)"}; do
                 th_text "  $l"
             done
         fi
@@ -111,41 +111,74 @@ th_doctor() {
         th_row "Defines:" "$(_th_doctor_defined get_user_info user_on_load)"
     fi
 
-    # The most common cause after a copy-paste: prose at the start of a line.
-    # A comment marker is one character, and losing it turns documentation into
-    # commands — or, worse, into a builtin like `private` that stops the file.
+    # The most common cause after a copy-paste: prose at the start of a line,
+    # where a comment marker was lost. Only two shapes are worth reporting, and
+    # both were measured rather than guessed:
+    #
+    #   `private file, so ...`  a builtin followed by a bare word ending in a
+    #                           comma — this ABORTS the file (exit 126)
+    #   `--------------------`  a separator line, which is merely noisy
+    #
+    # An earlier version used a catch-all "does not look like code" regex and
+    # flagged closing braces and quoted exports in a perfectly healthy file.
+    # A detector that cries wolf on good input is worse than none: it teaches
+    # people to scroll past the one section that matters.
     if [[ -r $user_file ]]; then
-        local -a suspects
-        suspects=(${(f)"$(grep -nE '^[[:space:]]*(private|local|typeset|declare|readonly|export)[[:space:]]+[a-zA-Z]+,' "$user_file" 2>/dev/null)"})
-        suspects+=(${(f)"$(grep -nE '^[[:space:]]*(-{3,}|[^[:alnum:][:space:]#_$"'"'"'({\[/.!*@-][^=]*)$' "$user_file" 2>/dev/null | head -5)"})
-        if (( ${#suspects} )); then
-            th_sub "✂️" "Lines that look like prose without a leading #"
-            local l
-            for l in ${suspects}; do [[ -n $l ]] && th_text "  $l"; done
-            th_text "A comment needs its '#'. A line starting with a word zsh knows as"
-            th_text "a builtin (private, local, typeset) does not merely error — it"
-            th_text "ABORTS the file, so nothing below it is defined."
+        local -a fatal noisy
+        fatal=(${(f)"$(grep -nE '^[[:space:]]*(private|local|typeset|declare|readonly|float|integer)[[:space:]]+[A-Za-z][A-Za-z0-9_]*,' "$user_file" 2>/dev/null)"})
+        noisy=(${(f)"$(grep -nE '^[[:space:]]*-{5,}[[:space:]]*$' "$user_file" 2>/dev/null)"})
+        fatal=(${fatal:#}); noisy=(${noisy:#})
+
+        if (( ${#fatal} )); then
+            th_sub "✂️" "Lines that ABORT the file (a lost '#')"
+                for l in ${fatal}; do th_text "  $l"; done
+            th_text "Each starts with a word zsh knows as a builtin. Misused at file"
+            th_text "scope that does not merely error — it stops the file, so nothing"
+            th_text "below it is defined. Put the '#' back."
             (( problems++ ))
+        fi
+        if (( ${#noisy} )); then
+            th_sub "✂️" "Separator lines without a leading '#'"
+                for l in ${noisy}; do th_text "  $l"; done
+            th_text "Harmless — they only print 'command not found' — but they are a"
+            th_text "sign the comment markers were lost when this was pasted."
         fi
     fi
 
     th_sub "🧩" "Your help files"
     th_row "Directory:" "$help_dir"
     if [[ -d $help_dir ]]; then
-        th_row "Files:" "$(print -l -- $help_dir/**/*.help.sh(N) | grep -c . ) *.help.sh"
+        local -a hfiles
+        hfiles=($help_dir/**/*.help.sh(N))
+        th_row "Files:" "${#hfiles} *.help.sh"
         local f bad=0
         for f in $help_dir/**/*.help.sh(N); do
             [[ -n $(whence -p zsh) ]] || break
             zsh -n "$f" 2>/dev/null || { th_warn "does not parse: ${f/#$HOME/~}"; bad=1; (( problems++ )) }
         done
-        (( bad )) || th_ok "all of them parse"
+        if (( ${#hfiles} == 0 )); then
+            th_text "none yet — a *.help.sh here becomes a topic of your own"
+        elif (( ! bad )); then
+            th_ok "all ${#hfiles} parse"
+        fi
     else
         th_text "not created yet — install.sh makes it"
     fi
 
     th_sub "🗂" "Topics"
-    th_row "Selected:" "${(j:, :)TH_TOPIC_ORDER}"
-    th_row "Manifest:" "${TH_SELECTED:-$TH_HOME/selected}"
+    local manifest="${TH_SELECTED:-$TH_HOME/selected}"
+    th_row "Loaded in THIS shell:" "${(j:, :)TH_TOPIC_ORDER}"
+    th_row "Manifest on disk:" "$manifest"
+    if [[ -r $manifest ]]; then
+        local -a on_disk
+        on_disk=(${(f)"$(th_selected_topics)"})
+        th_row "It selects:" "${(j:, :)${(o)on_disk}}"
+        # Running the installer does not change the shell you ran it from.
+        if [[ "${(j: :)${(o)on_disk}}" != "${(j: :)${(o)TH_TOPIC_ORDER}}" ]]; then
+            th_warn "this shell was started before the manifest last changed"
+            th_text "open a new shell (or: source ~/.zshrc) to pick it up"
+        fi
+    fi
     (( ${#TH_ORPHAN_EXTENSIONS} )) && {
         th_warn "extensions for topics that are not loaded: ${(j:, :)${(u)TH_ORPHAN_EXTENSIONS}}"
         th_text "turn one on with: th_topics enable <topic>"
