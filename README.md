@@ -8,7 +8,7 @@ It runs in **zsh** — macOS, Linux, WSL — and prints exactly one line when a
 shell starts:
 
 ```
-🧰 terminal-help v0.13.0 · get_help
+🧰 terminal-help v0.14.0 · get_help
 ```
 
 Everything host-specific — your servers, your shares, your aliases — lives in
@@ -34,7 +34,7 @@ cd ~/src/terminal-help
 ```
 
 ```
-🧰 terminal-help v0.13.0
+🧰 terminal-help v0.14.0
   Which shells should it be installed for? Pick as many as apply.
 
     1  🍎  macOS       — adds a source line to ~/.zshrc
@@ -272,7 +272,7 @@ the source line and it is read from there instead.
 
 | | |
 |---|---|
-| On every new shell | one line: `🧰 terminal-help v0.13.0 · get_help` |
+| On every new shell | one line: `🧰 terminal-help v0.14.0 · get_help` |
 | Plus | whatever *your* `user_on_load` chooses to print — nothing, by default |
 | Everything else | only when you ask for it by name |
 
@@ -571,6 +571,13 @@ Run against a real zsh 5.9, not eyeballed:
 - **The installer** — the topic menu on a pty (numbers, `a`, empty for the
   default), decline leaves `~/.zshrc` byte-identical, re-install leaves one
   block, uninstall removes the runtime and keeps both of your directories.
+- **A behaviour test** — `scripts/test-user-file-loads.sh` installs into a
+  throwaway `$HOME`, starts a real zsh, and asserts that `source ~/.zshrc`
+  prints what `~/.zshrc-user.sh` puts there: 10 assertions covering the
+  explicit source, an interactive shell, loading exactly once, functions and
+  aliases surviving, an **old rc block with no `th_source_user` line**, and
+  `TH_QUIET`. `--self-check` plants the regression and requires the suite to
+  catch it — with the fallback removed, 2 of the 10 fail, which is the point.
 - **The gate** — `bash scripts/check-syntax.sh`: 15 files, exit 0, and proved
   non-vacuous by planting a syntax error in a help file and watching it fail.
 - **Colour, in four directions** — present on a tty; absent when piped, under
