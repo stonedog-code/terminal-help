@@ -124,3 +124,14 @@ th_source_user() {
 if [[ -z $TH_QUIET ]]; then
     th_banner
 fi
+
+# Load your settings file, unless something already has.
+#
+# The installed ~/.zshrc block calls th_source_user by name, because where your
+# settings come from should be visible in the file you actually open. But that
+# line is not something to DEPEND on: a block written by an older installer, a
+# hand-edited one, or a shell that sources this file directly would otherwise
+# never load your file — and the symptom is silent and baffling, because the
+# version line still prints while nothing of yours does. th_source_user is
+# idempotent, so the explicit call in the block remains a no-op either way.
+[[ -n $TH_USER_SOURCED ]] || th_source_user
