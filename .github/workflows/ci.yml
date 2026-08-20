@@ -38,5 +38,16 @@ jobs:
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y zsh
 
-      - name: Gate — every shell file parses (zsh, bash, PowerShell)
+      - name: Gate — every shell file parses (zsh, bash)
         run: bash scripts/check-syntax.sh
+
+      # Parsing is not behaviour. This one installs into a throwaway HOME,
+      # starts a real zsh, and looks for a marker printed by the settings file
+      # — the thing that broke twice while every file still parsed perfectly.
+      - name: Gate — ~/.zshrc loads ~/.zshrc-user.sh
+        run: bash scripts/test-user-file-loads.sh
+
+      # And the test that cannot fail proves nothing: this plants the
+      # regression and requires the suite to catch it.
+      - name: Gate — the test above can actually fail
+        run: bash scripts/test-user-file-loads.sh --self-check
