@@ -339,6 +339,12 @@ Silence even the version line with `TH_QUIET=1` (put it in `~/.zshenv`, or
 | `get_python_help` | 🐍 Python — with the two below |
 | `get_uv_help` | 📦 `uv`: projects, dependencies, venvs |
 | `get_uvicorn_help` | ⚡ uvicorn and FastAPI launch lines |
+| `get_docker_help` | 🐳 Docker — run, inspect, build, stop |
+| `get_docker_cleanup_help` | 🧹 reclaiming disk, and what each prune really deletes |
+| `get_prisma_help` | 🔺 Prisma — generate, studio, schema paths, the two URLs |
+| `get_prisma_migrate_help` | 🚚 migrations: dev vs deploy, and unsticking a failed one |
+| `get_pgbouncer_help` | 🐘 pgBouncer — pool modes, what transaction mode breaks, auth |
+| `get_pgbouncer_admin_help` | 🎛 the admin console: `SHOW POOLS`, `PAUSE`, `RELOAD` |
 | `get_mac_help` | 🍎 keys, the default shell, Finder — then Homebrew |
 | `get_mac_keys_help` | ⌨️ moving the cursor: why Home is not Home on a Mac |
 | `get_homebrew_help` | 🍺 brew — upgrading, Brewfiles, services, what bites (`get_brew_help`) |
@@ -364,6 +370,9 @@ help/
 ├── powershell/powershell.help.sh  🔷  a shell you may not be running
 ├── technologies/git.help.sh       🌿  tools, one file each
 ├── technologies/python.help.sh    🐍
+├── technologies/docker.help.sh    🐳
+├── technologies/prisma.help.sh    🔺
+├── technologies/pgbouncer.help.sh 🐘
 └── user/                          🧩  YOURS — a symlink to ~/.zshrc-help.d
 ```
 
@@ -396,16 +405,22 @@ policy, the cmdlets worth knowing from a Unix shell — that you read from zsh.
 
 ```
      1  🐧  linux        Linux — installing zsh, packages, services, ports
-     2  🍎  mac          macOS — Homebrew, the default shell, Finder
-     3  🔷  powershell   PowerShell — profile, execution policy, cmdlets
-     4  🌿  git          git — everyday commands, branches, worktrees, PRs
-     5  🐍  python       Python — uv, virtualenvs, uvicorn
-     6  🪟  windows      Windows — winget, WSL, and getting zsh onto the machine
+     2  🍺  homebrew     Homebrew — installing, upgrading, and the bits that bite
+     3  🍎  mac          macOS — keys, the default shell, Finder, Homebrew
+     4  🔷  powershell   PowerShell — profile, execution policy, cmdlets
+     5  🤖  claude       Claude Code — CLAUDE.md, settings, and the CLI
+     6  🧑‍✈️  copilot      GitHub Copilot — instructions files, the CLI, chat
+     7  🐳  docker       Docker — images, containers, logs, exec, cleaning up
+     8  🌿  git          git — everyday commands, branches, worktrees, PRs
+     9  🐘  pgbouncer    pgBouncer — pool modes, auth, and the admin console
+    10  🔺  prisma       Prisma — migrations, drift, generate, studio
+    11  🐍  python       Python — uv, virtualenvs, uvicorn
+    12  🪟  windows      Windows — winget, WSL, and getting zsh onto the machine
 
   Numbers (comma or space separated), "a" for all [linux git python]:
 ```
 
-Pick `4` and `get_git_help` works. The default is your platform plus the
+Pick `8` and `get_git_help` works. The default is your platform plus the
 common technologies.
 
 **Everything is installed either way; the selection decides what loads.** That
