@@ -108,6 +108,33 @@ for f in .zshrc .zshrc-user.sh .zshrc-help.d .terminal-help; do
 done
 printf '%s' "$out" | grep -qx 'mac' && ok "the manifest holds the chosen topics" || bad "manifest is wrong"
 
+# --- 3b. re-running is an UPGRADE, not a re-decision ----------------------
+# The bug: ./install.sh --yes is what the README calls the upgrade, and it fell
+# through to the default (platform + git + python) because the topic chooser
+# never read the manifest. A nine-topic selection became three, silently. Run
+# under 3.2 like everything else here, because this is installer logic and
+# macOS is where the installer is least forgiving.
+out=$(docker run --rm -v "$REPO:/w:ro" "$IMAGE" sh -c '
+  cp -r /w /repo && mkdir -p /home/t && cd /repo &&
+  HOME=/home/t bash ./install.sh --all --yes > /dev/null 2>&1
+  echo "before=$(grep -vc "^#" /home/t/.terminal-help/selected)"
+  HOME=/home/t bash ./install.sh --yes > /dev/null 2>&1
+  echo "after=$(grep -vc "^#" /home/t/.terminal-help/selected)"
+  HOME=/home/t bash ./install.sh --reset --yes > /dev/null 2>&1
+  echo "reset=$(grep -vc "^#" /home/t/.terminal-help/selected)"' 2>&1)
+before=$(printf '%s' "$out" | sed -n 's/^before=//p')
+after=$(printf '%s' "$out" | sed -n 's/^after=//p')
+reset=$(printf '%s' "$out" | sed -n 's/^reset=//p')
+[ -n "$before" ] && [ "$before" -gt 3 ] \
+  && ok "a --all install selects everything ($before topics)" \
+  || { bad "could not establish a starting selection"; printf '%s\n' "$out" | tail -4 | sed 's/^/      /'; }
+[ "$after" = "$before" ] \
+  && ok "re-running with --yes keeps all $before, it does not narrow to the default" \
+  || bad "re-running narrowed the selection: $before -> $after"
+[ -n "$reset" ] && [ "$reset" -lt "$before" ] \
+  && ok "--reset does choose again ($before -> $reset)" \
+  || bad "--reset did not re-choose: still $reset"
+
 # --- 4. the truncation sentinel -------------------------------------------
 # The failure this project actually hit on macOS was not a bash version at all:
 # a partial file read from a network share. The installer detects that itself
