@@ -90,16 +90,17 @@ th_doctor() {
             (( problems++ ))
         fi
         if [[ -n $TH_USER_SOURCED ]]; then
-            if (( ${TH_USER_STATUS:-0} )); then
-                th_warn "it returned exit $TH_USER_STATUS. That is one of two things:"
-                th_text "  · it stopped early at an error, and everything below that"
-                th_text "    line never ran — a misused builtin does this; or"
-                th_text "  · it ran to the end and its LAST command simply failed"
-                th_text "    (connect_work with the share unreachable, say)"
-                th_text "To tell them apart, run it on its own and read the first error:"
-                th_text "  zsh -f -c 'source $user_file'"
-                th_text "Then check something defined at the BOTTOM of the file exists."
+            if (( ${TH_USER_STATUS:-0} == 126 )); then
+                th_warn "it STOPPED EARLY (126) — everything below the failing line"
+                th_text "never ran. A builtin misused at file scope does this, and the"
+                th_text "usual cause is prose that lost its leading '#'. See below."
+                th_text "Read the first error with: zsh -f -c 'source $user_file'"
                 (( problems++ ))
+            elif (( ${TH_USER_STATUS:-0} )); then
+                th_ok "it ran to the end"
+                th_text "its last command returned ${TH_USER_STATUS}, which is that command's"
+                th_text "own status — not a loading problem. (connect_work with the"
+                th_text "share unreachable looks exactly like this.)"
             else
                 th_ok "it loaded cleanly"
             fi

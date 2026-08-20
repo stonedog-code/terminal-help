@@ -109,9 +109,15 @@ th_source_user() {
     fi
     TH_USER_SOURCED=1
 
-    if (( TH_USER_STATUS )); then
-        th_warn "${TH_USER_FILE:t} returned exit $TH_USER_STATUS — it either stopped"
-        th_text "early at an error, or its last command failed. Run: th_doctor"
+    # 126 is the abort signature, and measurably so: a builtin misused at file
+    # scope (`private file, so ...` in prose that lost its #) returns 126 AND
+    # stops the file, while a command that does not exist, or one that merely
+    # fails, returns its own status and the file runs to the end. So only 126
+    # is worth interrupting someone's prompt about; anything else is the last
+    # command's status and th_doctor can explain it if they ask.
+    if (( TH_USER_STATUS == 126 )); then
+        th_warn "${TH_USER_FILE:t} STOPPED EARLY — everything below the failing"
+        th_text "line was not loaded. Run: th_doctor"
     fi
 
     [[ -z $TH_QUIET ]] && th_defined user_on_load && user_on_load

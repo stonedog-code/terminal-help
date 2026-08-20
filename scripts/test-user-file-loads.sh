@@ -137,7 +137,39 @@ else
   note "this is the exact failure: version line prints, your file does not"
 fi
 
-# --- 6. quiet mode loads settings, it only silences the banner ------------
+# --- 6. a failing LAST command is not an abort, and must not be reported as
+#        one; a real abort must be. 126 is the abort signature, measured.
+cat > "$H/.zshrc-user.sh" <<EOF
+print "$MARKER top-level"
+user_on_load() { print "$MARKER from user_on_load" }
+false
+EOF
+out="$(run_zsh)"
+if [ "$(count "$out" "STOPPED EARLY")" -eq 0 ]; then
+  ok "a failing last command does not produce a scary 'stopped early' warning"
+else
+  bad "a benign failure was reported as an abort"
+fi
+[ "$(count "$out" "$MARKER top-level")" -ge 1 ] \
+  && ok "...and the file still loaded" || bad "the file did not load"
+
+# A builtin misused at file scope: this genuinely stops the file, and the
+# things defined below it must be missing.
+cat > "$H/.zshrc-user.sh" <<EOF
+print "$MARKER top-level"
+private file, so it can be as specific as you like.
+${MARKER}_below() { print "should not exist" }
+EOF
+out="$(run_zsh)"
+[ "$(count "$out" "STOPPED EARLY")" -ge 1 ] \
+  && ok "a real abort IS reported" || bad "a real abort was not reported"
+out="$(HOME="$H" ZDOTDIR="$H" zsh -i -c "whence -w ${MARKER}_below" 2>&1)"
+[ "$(count "$out" "function")" -eq 0 ] \
+  && ok "...and what was below the failing line is indeed missing" \
+  || bad "the abort test is not actually aborting"
+write_user_file   # restore for the checks below
+
+# --- 7. quiet mode loads settings, it only silences the banner ------------
 out="$(HOME="$H" ZDOTDIR="$H" TH_QUIET=1 zsh -i -c 'print DONE' 2>&1)"
 [ "$(count "$out" "$MARKER top-level")" -ge 1 ] \
   && ok "TH_QUIET=1 still loads your settings" || bad "TH_QUIET=1 skipped your settings"
