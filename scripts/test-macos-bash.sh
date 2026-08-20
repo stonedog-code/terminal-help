@@ -73,7 +73,13 @@ else
   ok "bash 3.2 reported no errors of its own"
 fi
 
-for expect in "installed 9 topics" "added the terminal-help block" "open a new shell"; do
+# Counted from the catalogue, not hardcoded. This said "installed 9 topics"
+# and broke the moment three topic files were added — reporting "the script may
+# have died before its end", which points at the installer rather than at the
+# assertion. A number that must be edited whenever content is added is a number
+# that will one day be edited to whatever makes the test pass.
+n_topics=$(ls "$REPO"/help/*/*.help.sh 2>/dev/null | wc -l | tr -d ' ')
+for expect in "installed $n_topics topics" "added the terminal-help block" "open a new shell"; do
   printf '%s' "$out" | grep -q "$expect" \
     && ok "printed: $expect" \
     || bad "did NOT print: $expect  (the script may have died before its end)"
