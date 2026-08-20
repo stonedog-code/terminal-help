@@ -48,9 +48,47 @@ th_load_colors() {
     done
 }
 
+# How wide is the terminal? zsh keeps COLUMNS current, including across a
+# resize. 80 is the fallback when there is no terminal at all (a pipe, a cron
+# job), which is also the width people write help for.
+th_cols() { print -r -- "${COLUMNS:-80}" }
+
+# Wrap TEXT to WIDTH at word boundaries, one line per output line.
+#
+# A word longer than the width is left to overflow rather than broken: these
+# are commands, and a command split across a line boundary is a command you
+# cannot copy. Better one ragged line than a mangled one.
+th_wrap() {  # th_wrap <width> <text...>
+    local w=$1; shift
+    local text="$*"
+    # ${(m)#...} is display width; ${#...} is characters. An emoji is one
+    # character and two columns, so measuring characters puts every line with
+    # one a column or two past the edge — which is precisely the wrap this
+    # function exists to prevent.
+    (( ${(m)#text} <= w )) && { print -r -- "$text"; return }
+    local -a words out
+    words=(${=text})
+    local line=""
+    local word
+    for word in $words; do
+        if [[ -z $line ]]; then
+            line=$word
+        elif (( ${(m)#line} + 1 + ${(m)#word} <= w )); then
+            line="$line $word"
+        else
+            out+=("$line"); line=$word
+        fi
+    done
+    [[ -n $line ]] && out+=("$line")
+    print -rl -- $out
+}
+
 th_head() {  # th_head <emoji> <title>
     th_load_colors
     local width=${TH_WIDTH:-64}
+    local max=$(( $(th_cols) - 2 ))
+    (( width > max )) && width=$max
+    (( width < 8 )) && width=8
     print -r --
     print -r -- "${TH_C_bold}${TH_C_title}$1  $2${TH_C_reset}"
     print -r -- "${TH_C_rule}${(l:$width::─:)}${TH_C_reset}"
@@ -59,25 +97,75 @@ th_head() {  # th_head <emoji> <title>
 th_sub() {  # th_sub <emoji> <title> — a heading inside a section
     th_load_colors
     print -r --
-    print -r -- "  ${TH_C_bold}${TH_C_sub}$1 $2${TH_C_reset}"
+    local l first=1
+    for l in ${(f)"$(th_wrap $(( $(th_cols) - 4 )) "$1 $2")"}; do
+        if (( first )); then
+            print -r -- "  ${TH_C_bold}${TH_C_sub}${l}${TH_C_reset}"; first=0
+        else
+            print -r -- "    ${TH_C_bold}${TH_C_sub}${l}${TH_C_reset}"
+        fi
+    done
 }
 
 th_row() {  # th_row <label> <command...>
     th_load_colors
     local label=$1; shift
-    printf '  %s%-*s%s %s%s%s\n' \
-        "$TH_C_label" "${TH_LABEL_WIDTH:-24}" "$label" "$TH_C_reset" \
-        "$TH_C_cmd" "$*" "$TH_C_reset"
+    local w=${TH_LABEL_WIDTH:-24}
+    local text="$*"
+    # 2 leading spaces + the label column + 1 separating space.
+    local gutter=$(( 2 + w + 1 ))
+    local avail=$(( $(th_cols) - gutter ))
+
+    # On a very narrow terminal the description column is not worth having:
+    # give the label its own line rather than a two-character ribbon.
+    if (( avail < 24 )); then
+        printf '  %s%s%s\n' "$TH_C_label" "$label" "$TH_C_reset"
+        local l
+        for l in ${(f)"$(th_wrap $(( $(th_cols) - 4 )) "$text")"}; do
+            printf '    %s%s%s\n' "$TH_C_cmd" "$l" "$TH_C_reset"
+        done
+        return
+    fi
+
+    # The point of this: a description that does not fit must continue in the
+    # DESCRIPTION column, not at the left margin. Wrapped by the terminal it
+    # lands under the labels and the two columns stop being columns at all.
+    local -a lines
+    lines=(${(f)"$(th_wrap $avail "$text")"})
+    local pad=$(( w - ${(m)#label} ))
+    (( pad < 0 )) && pad=0
+    printf '  %s%s%*s%s %s%s%s\n' \
+        "$TH_C_label" "$label" "$pad" "" "$TH_C_reset" "$TH_C_cmd" "${lines[1]}" "$TH_C_reset"
+    local i
+    for (( i = 2; i <= ${#lines}; i++ )); do
+        printf '%*s%s%s%s\n' "$gutter" "" "$TH_C_cmd" "${lines[i]}" "$TH_C_reset"
+    done
 }
 
 th_note() {  # th_note <text...> — the caveat the command does not tell you
     th_load_colors
-    printf '  %*s %s↳ %s%s\n' "${TH_LABEL_WIDTH:-24}" "" "$TH_C_note" "$*" "$TH_C_reset"
+    local w=${TH_LABEL_WIDTH:-24}
+    local gutter=$(( 2 + w + 1 ))
+    local avail=$(( $(th_cols) - gutter - 2 ))   # "↳ "
+    (( avail < 20 )) && { gutter=4; avail=$(( $(th_cols) - 6 )); }
+
+    local -a lines
+    lines=(${(f)"$(th_wrap $avail "$*")"})
+    printf '%*s%s↳ %s%s\n' "$gutter" "" "$TH_C_note" "${lines[1]}" "$TH_C_reset"
+    local i
+    for (( i = 2; i <= ${#lines}; i++ )); do
+        # Aligned under the text, not under the arrow: the arrow marks the note,
+        # it does not repeat on every line of it.
+        printf '%*s%s%s%s\n' "$(( gutter + 2 ))" "" "$TH_C_note" "${lines[i]}" "$TH_C_reset"
+    done
 }
 
 th_text() {  # th_text <text...> — a free line, indented to the section body
     th_load_colors
-    print -r -- "  ${TH_C_note}$*${TH_C_reset}"
+    local l
+    for l in ${(f)"$(th_wrap $(( $(th_cols) - 4 )) "$*")"}; do
+        print -r -- "  ${TH_C_note}${l}${TH_C_reset}"
+    done
 }
 
 th_warn() {

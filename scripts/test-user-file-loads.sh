@@ -183,6 +183,32 @@ out=$(HOME="$H" ZDOTDIR="$H" zsh -i -c "whence -w ${MARKER}_below" 2>&1)
   || bad "the abort test is not actually aborting"
 write_user_file   # restore for the checks below
 
+# --- 6b. narrow terminals: a description must wrap INTO its own column ----
+# At 84x40 the description used to wrap at the terminal edge and continue at
+# column 0, under the labels, so the two columns stopped being columns. The
+# rule: nothing we emit should be wider than the terminal unless it is a single
+# unbreakable word (a command you have to be able to copy).
+for cols in 60 84; do
+  out=$(HOME="$H" ZDOTDIR="$H" COLUMNS=$cols zsh -i -c 'TH_NO_COLOR=1 get_git_help; TH_NO_COLOR=1 get_help' 2>/dev/null)
+  # Measured in zsh, with ${(m)#line} — display width. awk counts bytes, which
+  # makes every em-dash and arrow look three columns wide.
+  bad_lines=$(printf '%s\n' "$out" | HOME="$H" COLUMNS=$cols zsh -c '
+    integer w=${1:-80} n=0
+    while IFS= read -r line; do
+      (( n++ ))
+      (( ${(m)#line} > w )) || continue
+      # Could it have broken? Only complain if there is a space past the edge.
+      rest=${line[$w,-1]}
+      [[ $rest == *" "* ]] && print -r -- "$n: $line"
+    done' -- "$cols" | head -3)
+  if [ -z "$bad_lines" ]; then
+    ok "at ${cols} columns, nothing wrapped at the terminal edge"
+  else
+    bad "at ${cols} columns, lines exceed the width with breakable spaces:"
+    printf '%s\n' "$bad_lines" | sed 's/^/      /'
+  fi
+done
+
 # --- 7. quiet mode loads settings, it only silences the banner ------------
 out=$(HOME="$H" ZDOTDIR="$H" TH_QUIET=1 zsh -i -c 'print DONE' 2>&1)
 [ "$(count "$out" "$MARKER top-level")" -ge 1 ] \
