@@ -189,14 +189,14 @@ th_doctor() {
     if [[ -r $manifest ]]; then
         local -a on_disk
         on_disk=(${(f)"$(th_selected_topics)"})
-        th_row "It selects:" "${(j:, :)${(o)on_disk}}"
+        th_row "It selects:" "${(j:, :)${(@o)on_disk}}"
         # Running the installer does not change the shell you ran it from.
         #
         # PACKAGE topics only. th_available_topics skips help/user, so the
         # manifest can never list a topic of yours — comparing it against every
         # loaded topic meant one *.help.sh of your own made this warn on every
         # shell, and the reload it advises could never clear it.
-        if [[ "${(j: :)${(o)on_disk}}" != "${(j: :)${(o)loaded_pkg}}" ]]; then
+        if [[ "${(j: :)${(@o)on_disk}}" != "${(j: :)${(@o)loaded_pkg}}" ]]; then
             th_warn "this shell was started before the manifest last changed"
             th_text "open a new shell (or: source ~/.zshrc) to pick it up"
         fi

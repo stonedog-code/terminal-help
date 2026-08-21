@@ -33,7 +33,7 @@ get_help() {
     done
     if (( ${#idle} )); then
         print -r --
-        th_row "$(( ${#idle} )) more installed:" "${(j:, :)${(o)idle}}"
+        th_row "$(( ${#idle} )) more installed:" "${(j:, :)${(@o)idle}}"
         th_note "turn one on with: th_topics enable <topic>"
     fi
 
