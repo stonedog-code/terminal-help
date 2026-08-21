@@ -1,9 +1,11 @@
 #!/usr/bin/env zsh
-# 🍎 macOS — Homebrew, the default shell, and the Finder settings worth changing.
+# 🍎 macOS — the default shell, the cursor keys, and the Finder settings worth
+# changing. Homebrew is a related topic, not part of this one.
 # TH_TOPIC: mac
 # TH_EMOJI: 🍎
-# TH_DESC:  macOS — keys, the default shell, Finder, Homebrew
+# TH_DESC:  macOS — keys, the default shell, Finder
 # TH_ALSO:  get_mac_keys_help | ⌨️ | moving the cursor: why Home is not Home
+# TH_RELATED: homebrew
 
 _th_help_mac() {
     th_head "🍎" "macOS"
@@ -25,17 +27,9 @@ _th_help_mac() {
     th_row "Show hidden files:"  "defaults write com.apple.finder AppleShowAllFiles -bool true"
     th_row ""                    "killall Finder    (to apply either change)"
 
+    # A sub-section of THIS topic (TH_ALSO), so it prints as part of it: where
+    # the cursor keys go is macOS, not a neighbouring subject.
     get_mac_keys_help
-
-    # Homebrew is its own topic so it can be read on its own, but nobody
-    # setting up a Mac wants to be told to go and find it.
-    if th_defined get_homebrew_help; then
-        get_homebrew_help
-    else
-        print -r --
-        th_row "Homebrew:" "th_topics enable homebrew"
-        th_note "brew has its own topic; it is not switched on"
-    fi
 }
 
 get_mac_keys_help() {

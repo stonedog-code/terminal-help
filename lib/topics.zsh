@@ -9,6 +9,13 @@
 #     # TH_EMOJI: 🌿
 #     # TH_DESC:  git — branches, worktrees, pull requests
 #     # TH_ALSO:  get_git_worktree_help | 🌳 | worktrees, and the rules
+#     # TH_RELATED: github
+#
+# TH_ALSO and TH_RELATED are different relationships and are treated
+# differently. TH_ALSO is a sub-section of THIS topic, living in this file: it
+# prints as part of the topic, because it is part of the topic. TH_RELATED
+# names a SEPARATE topic — its own file, its own entry in `selected`, its own
+# `th_topics enable` — and is only NAMED by default. `--all` prints it too.
 #
 #     _th_help_git() { ... }
 #
@@ -22,6 +29,7 @@
 # file can append to a topic it does not own and did not modify.
 
 typeset -gA TH_TOPIC_EMOJI TH_TOPIC_DESC TH_TOPIC_FILE TH_TOPIC_HOOKS TH_TOPIC_CATEGORY
+typeset -gA TH_TOPIC_RELATED
 typeset -ga TH_TOPIC_ORDER
 typeset -gA TH_ALSO_DESC
 typeset -ga TH_ALSO_ORDER
@@ -99,6 +107,18 @@ th_load_topic_file() {  # th_load_topic_file <file> [category]
     TH_TOPIC_FILE[$name]=$file
     TH_TOPIC_CATEGORY[$name]=${category:-${${file:h}:t}}
 
+    # Repeatable, so a topic can point at more than one. Validated to the same
+    # [a-z0-9_] a topic name is, because these are looked up and printed.
+    local -a rel
+    for also in ${(f)"$(th_header_fields "$file" TH_RELATED)"}; do
+        if [[ $also == [a-z0-9_]## ]]; then
+            rel+=("$also")
+        else
+            th_warn "skipping TH_RELATED '$also' in ${file:t}: not a topic name"
+        fi
+    done
+    TH_TOPIC_RELATED[$name]="${rel}"
+
     source "$file"
 
     # The topic's own body is the first hook; extensions append after it.
@@ -108,7 +128,7 @@ th_load_topic_file() {  # th_load_topic_file <file> [category]
 
     # Generated entry point. The name is validated above, so this eval expands
     # nothing a help file controls beyond [a-z0-9_].
-    eval "get_${name}_help() { th_show_topic ${name} }"
+    eval "get_${name}_help() { th_show_topic ${name} \"\$@\" }"
     th_info_twin "get_${name}_help"
 
     # Secondary functions the file wants listed in the index, indented.
@@ -155,7 +175,20 @@ typeset -ga _th_topic_stack
 # that last one and leave the topic permanently refusing to print, which is a
 # worse bug than the one being fixed.
 th_show_topic() {
-    local topic=$1 hook ran=0
+    local topic=$1 hook ran=0 all=0 arg
+    shift
+
+    # An unknown flag is REPORTED, never swallowed. A tool that silently
+    # ignores what you typed teaches you that it did what you asked.
+    for arg in "$@"; do
+        case $arg in
+            --all|-a) all=1 ;;
+            *)  th_warn "get_${topic}_help: I do not know the option '$arg'"
+                th_note "the only one is --all, which prints the related topics too"
+                return 2 ;;
+        esac
+    done
+
     if (( ${_th_topic_stack[(I)$topic]} )); then
         th_warn "'$topic' is already printing — refusing to re-enter it"
         th_note "something inside topic '$topic' calls get_${topic}_help;"
@@ -170,6 +203,50 @@ th_show_topic() {
         ran=1
     done
     (( ran )) || th_warn "no content is loaded for topic '$topic'"
+
+    th_show_related "$topic" $all
+}
+
+# A related topic is NAMED by default and printed only under --all.
+#
+# It used to be printed unconditionally, and one call site made the case on its
+# own: `_th_help_mac` ended by calling get_homebrew_help, so at 100 columns
+# get_mac_help was 132 lines of which 69 were Homebrew and 21 were macOS. Asking
+# for macOS help and getting mostly a package manager is not help, and there was
+# no way to say no. Naming it costs four lines and loses nothing, because the
+# name IS the command.
+th_show_related() {  # th_show_related <topic> <all?>
+    local topic=$1 all=$2 r
+    local -a related
+    related=(${=TH_TOPIC_RELATED[$topic]})
+    (( ${#related} )) || return 0
+
+    if (( all )); then
+        for r in $related; do
+            # Already on the stack: it is printing further up the chain, so
+            # printing it again would be a duplicate at best. A cycle in
+            # TH_RELATED is a reasonable thing to write — two topics that each
+            # point at the other — so this is a skip, not a complaint. The loud
+            # warning in th_show_topic stays for the pathological case, a hook
+            # that re-enters its OWN topic.
+            (( ${_th_topic_stack[(I)$r]} )) && continue
+            th_defined "get_${r}_help" || continue
+            th_show_topic "$r" --all
+        done
+        return 0
+    fi
+
+    th_sub "🔗" "Related topics"
+    for r in $related; do
+        if th_defined "get_${r}_help"; then
+            th_row "get_${r}_help" "${TH_TOPIC_EMOJI[$r]} ${TH_TOPIC_DESC[$r]}"
+        else
+            # Saying "installed but switched off" beats omitting it, which
+            # reads as though the relationship does not exist.
+            th_row "get_${r}_help" "not loaded — th_topics enable $r"
+        fi
+    done
+    th_note "get_${topic}_help --all prints these here as well"
 }
 
 # Called by a user's extension file: add to a topic you do not own.

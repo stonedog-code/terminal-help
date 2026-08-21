@@ -3,6 +3,7 @@
 # TH_TOPIC: prisma
 # TH_EMOJI: 🔺
 # TH_DESC:  Prisma — migrations, drift, generate, studio
+# TH_RELATED: pgbouncer
 # TH_ALSO:  get_prisma_migrate_help | 🚚 | migrations: dev, deploy, and unsticking one
 
 _th_help_prisma() {

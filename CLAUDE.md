@@ -14,7 +14,7 @@ four run locally:
 
 ```sh
 bash scripts/check-syntax.sh                        # 24 files, zsh + bash parsers
-bash scripts/test-user-file-loads.sh                # 26 assertions in a throwaway HOME
+bash scripts/test-user-file-loads.sh                # 33 assertions in a throwaway HOME
 bash scripts/test-user-file-loads.sh --self-check   # must FAIL — proves the above can
 bash scripts/test-macos-bash.sh                     # 22 assertions, installer under real bash 3.2 (docker)
 ```
@@ -55,6 +55,30 @@ load-bearing.** The name reaches it from a `TH_ALSO` comment in a file this
 tool did not write, so without the check a header line is arbitrary code at
 shell startup. There is an assertion for exactly that; removing the validation
 makes a header run `touch`.
+
+## `TH_ALSO` and `TH_RELATED` are not the same thing
+
+`TH_ALSO` is a **sub-section of this topic**, defined in this file: it always
+prints, because it is part of the topic. `TH_RELATED` names a **separate
+topic** — its own file, its own `selected` entry, its own `th_topics enable` —
+and is only NAMED by default, printed under `--all`.
+
+Getting this backwards is what the mac topic did: `_th_help_mac` called
+`get_homebrew_help` outright, so `get_mac_help` was 132 lines of which 69 were
+Homebrew and 21 were macOS. **A topic body must never call another topic's
+entry point** — declare `TH_RELATED` and let `th_show_related` decide.
+
+Two consequences worth knowing before touching `th_show_topic`:
+
+- **Every entry point forwards `"$@"`**, and so does `th_info_twin`. Drop the
+  forwarding anywhere along that chain and `--all` works on one spelling of the
+  command and not the other.
+- **`th_show_related` skips a topic already on `_th_topic_stack`, silently.**
+  Two topics naming each other is a reasonable thing to write, and the loud
+  re-entrancy warning is for a hook re-entering its OWN topic — a mistake.
+  Without the skip the cycle still terminates, so the assertion covering it
+  asserts the SILENCE, not the termination. A warning that fires on correct
+  usage is one people learn to scroll past.
 
 ## Two shapes of user content, and what they cost
 

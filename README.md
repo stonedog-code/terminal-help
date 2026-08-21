@@ -351,21 +351,61 @@ both of every command would double a list whose whole job is to be readable.
 | `get_uvicorn_help` | ⚡ uvicorn and FastAPI launch lines |
 | `get_docker_help` | 🐳 Docker — run, inspect, build, stop |
 | `get_docker_cleanup_help` | 🧹 reclaiming disk, and what each prune really deletes |
-| `get_prisma_help` | 🔺 Prisma — generate, studio, schema paths, the two URLs |
+| `get_prisma_help` | 🔺 Prisma — generate, studio, schema paths, the two URLs (related: `pgbouncer`) |
 | `get_prisma_migrate_help` | 🚚 migrations: dev vs deploy, and unsticking a failed one |
 | `get_pgbouncer_help` | 🐘 pgBouncer — pool modes, what transaction mode breaks, auth |
 | `get_pgbouncer_admin_help` | 🎛 the admin console: `SHOW POOLS`, `PAUSE`, `RELOAD` |
-| `get_mac_help` | 🍎 keys, the default shell, Finder — then Homebrew |
+| `get_mac_help` | 🍎 keys, the default shell, Finder (related: `homebrew`) |
 | `get_mac_keys_help` | ⌨️ moving the cursor: why Home is not Home on a Mac |
 | `get_homebrew_help` | 🍺 brew — upgrading, Brewfiles, services, what bites (`get_brew_help`) |
 | `get_claude_help` | 🤖 Claude Code — CLAUDE.md, settings.json, the CLI |
 | `get_copilot_help` | 🧑‍✈️ GitHub Copilot — instructions files, chat, `gh copilot` |
 | `get_linux_help` | 🐧 installing zsh, packages, services, ports |
-| `get_windows_help` | 🪟 winget, WSL, zsh on Windows |
+| `get_windows_help` | 🪟 winget, WSL, zsh on Windows (related: `powershell`) |
 | `get_powershell_help` | 🔷 profile, execution policy, cmdlets from a Unix shell |
 | `get_user_info` | 🔒 yours, from `~/.zshrc-user.sh` |
 
 Only selected topics are defined; `th_topics` shows the rest.
+
+## 🔗 Related topics, and `--all`
+
+A topic prints **its own content**, then names anything related. `--all` prints
+the related topics as well:
+
+```
+$ get_mac_help                 # macOS. 67 lines.
+
+  🔗 Related topics
+  get_homebrew_help        🍺 Homebrew — installing, upgrading, and the bits that bite
+                           ↳ get_mac_help --all prints these here as well
+
+$ get_mac_help --all           # macOS and Homebrew. 132 lines.
+```
+
+**This used not to be a choice.** `get_mac_help` ended by calling
+`get_homebrew_help` outright, so at 100 columns it was 132 lines of which 69
+were Homebrew and 21 were macOS — 16% of "macOS help" was macOS, and there was
+no way to decline the rest. Naming it instead costs four lines and loses
+nothing, because **the name is the command**.
+
+`TH_ALSO` and `TH_RELATED` are different relationships and are treated
+differently:
+
+| | is | prints |
+|---|---|---|
+| `TH_ALSO` | a **sub-section of this topic**, in this file | always — it is part of the topic |
+| `TH_RELATED` | a **separate topic**: own file, own `selected` entry, own `th_topics enable` | named by default, printed under `--all` |
+
+So `get_mac_keys_help` still prints inside `get_mac_help` — where the cursor
+keys go is macOS, not a neighbouring subject — while Homebrew does not.
+
+A related topic that is installed but switched off is still named, with the
+command to turn it on. Two topics that name **each other** is a fine thing to
+write: under `--all` each prints exactly once, and quietly — the re-entrancy
+warning is for a hook re-entering its own topic, which is a mistake, not for
+this, which is not.
+
+An unknown option is reported and exits `2`. Nothing is swallowed.
 
 ## 🗂 The catalogue: one folder, one format
 
@@ -395,6 +435,7 @@ three lines:
 # TH_EMOJI: 🌿
 # TH_DESC:  git — everyday commands, branches, worktrees, pull requests
 # TH_ALSO:  get_git_worktree_help | 🌳 | worktrees, and the rules
+# TH_RELATED: github
 
 _th_help_git() {
     th_head "🌿" "Git"
@@ -672,11 +713,11 @@ Run against a real zsh 5.9, not eyeballed:
   block, uninstall removes the runtime and keeps both of your directories.
 - **A behaviour test** — `scripts/test-user-file-loads.sh` installs into a
   throwaway `$HOME`, starts a real zsh, and asserts that `source ~/.zshrc`
-  prints what `~/.zshrc-user.sh` puts there: 26 assertions covering the
+  prints what `~/.zshrc-user.sh` puts there: 33 assertions covering the
   explicit source, an interactive shell, loading exactly once, functions and
   aliases surviving, an **old rc block with no `th_source_user` line**, and
   `TH_QUIET`. `--self-check` plants the regression and requires the suite to
-  catch it — with the fallback removed, 2 of the 26 fail, which is the point.
+  catch it — with the fallback removed, 2 of the 33 fail, which is the point.
 - **macOS's bash, without a Mac** — `scripts/test-macos-bash.sh` runs the
   installer under the official `bash:3.2` image (what macOS ships, frozen in
   2007): 22 assertions covering parsing, a full install, the files it writes,
@@ -690,6 +731,12 @@ Run against a real zsh 5.9, not eyeballed:
   seconds, ended by `timeout`). It is refused at registration when written the
   obvious way, and refused again in `th_show_topic` when reached through a
   wrapper. Both proved non-vacuous by removing each guard in turn.
+- **A topic prints its own content** — `get_mac_help` no longer inlines the
+  homebrew topic (67 lines, not 132), still names `get_homebrew_help`, and
+  `--all` brings it back. `get_mac_info --all` works too, so the twin forwards
+  its arguments. An unknown option exits 2 rather than being ignored, and two
+  topics naming each other terminate under `--all`, printing each once and
+  saying nothing. All four proved non-vacuous by planting the opposite.
 - **`_help` and `_info` are the same command** — asserted as equality of
   output, not merely as "the name exists": `get_git_info` prints byte-identical
   text to `get_git_help`, sub-sections and user topics get twins from the same

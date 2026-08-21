@@ -108,6 +108,11 @@ get_terminal_help_usage() {
     th_row "th_doctor"       "why isn't my help — or my settings file — loading?"
     th_row "get_versions"    "what is installed on this machine"
     th_note "help_me is an alias for get_help, if that is what your fingers do"
+    print -r --
+    th_row "get_<topic>_help --all" "the topic AND every topic related to it"
+    th_note "a topic prints its own content and NAMES its related topics; --all"
+    th_note "prints those too. get_mac_help is macOS; get_mac_help --all adds"
+    th_note "Homebrew, which is its own topic and 69 of the 132 lines"
 
     th_sub "📁" "Where things live"
     th_row "~/.zshrc"           "one marked block; the installer rewrites it"
@@ -124,8 +129,12 @@ get_terminal_help_usage() {
     th_row "  " "# TH_TOPIC: deploy"
     th_row "  " "# TH_EMOJI: 🚀"
     th_row "  " "# TH_DESC:  our deploy runbook"
+    th_row "  " "# TH_RELATED: docker          (optional, repeatable)"
     th_row "  " "_th_help_deploy() { th_head \"🚀\" \"Deploy\"; th_row \"Staging:\" \"...\" }"
-    th_note "get_deploy_help is generated from that header — you never write it"
+    th_note "get_deploy_help is generated from that header — you never write it,"
+    th_note "and get_deploy_info comes with it"
+    th_note "TH_RELATED names a SEPARATE topic: listed by default, printed under"
+    th_note "--all. TH_ALSO is a sub-section of this one and always prints."
     print -r --
     th_text "An extension — add to a topic that ships with terminal-help,"
     th_text "without editing the package file:"

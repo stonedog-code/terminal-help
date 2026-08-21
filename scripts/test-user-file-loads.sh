@@ -86,7 +86,7 @@ EOF
 }
 
 install_into_home() {
-  HOME="$H" bash "$REPO/install.sh" --topics git --yes > "$TMP/install.log" 2>&1
+  HOME="$H" bash "$REPO/install.sh" --topics git,mac,homebrew --yes > "$TMP/install.log" 2>&1
 }
 
 # Run a real zsh in that HOME. `--source-only` uses exactly what a person types
@@ -362,6 +362,81 @@ fi
   && ok "...and it says so rather than failing silently" \
   || bad "the rejection was silent"
 rm -f "$H/.zshrc-help.d/deploy.help.sh"
+
+# --- 6f. a related topic is NAMED by default and printed only under --all --
+# get_mac_help used to end by calling get_homebrew_help outright: at 100 columns
+# it was 132 lines, of which 69 were Homebrew and 21 were macOS. Asking for
+# macOS help and getting mostly a package manager is not help, and there was no
+# way to decline it.
+mac=$(HOME="$H" ZDOTDIR="$H" COLUMNS=100 zsh -ic 'TH_NO_COLOR=1 COLUMNS=100 get_mac_help' 2>&1)
+all=$(HOME="$H" ZDOTDIR="$H" COLUMNS=100 zsh -ic 'TH_NO_COLOR=1 COLUMNS=100 get_mac_help --all' 2>&1)
+
+# "brew bundle dump" appears only in the homebrew topic's body, so it is a
+# content probe rather than a word that might turn up in a cross-reference.
+if [ "$(count "$mac" "brew bundle dump")" -eq 0 ]; then
+  ok "get_mac_help prints macOS, not Homebrew"
+else
+  bad "get_mac_help still inlines the whole homebrew topic"
+fi
+[ "$(count "$all" "brew bundle dump")" -ge 1 ] \
+  && ok "get_mac_help --all does print the related topic" \
+  || bad "--all did not bring in the related topic"
+
+# Named, not silently dropped: the whole justification for deferring it is that
+# the name IS the command, so the name has to be there.
+[ "$(count "$mac" "get_homebrew_help")" -ge 1 ] \
+  && ok "...and names get_homebrew_help so it can still be found" \
+  || bad "the related topic is not printed AND not named — it just vanished"
+
+# The twin has to forward its arguments, or --all works on one spelling only.
+out=$(HOME="$H" ZDOTDIR="$H" COLUMNS=100 zsh -ic 'TH_NO_COLOR=1 COLUMNS=100 get_mac_info --all' 2>&1)
+[ "$(count "$out" "brew bundle dump")" -ge 1 ] \
+  && ok "get_mac_info --all works too — the _info twin forwards arguments" \
+  || bad "the _info twin swallowed --all"
+
+# An unknown flag must be reported. A tool that ignores what you typed teaches
+# you that it did what you asked.
+out=$(HOME="$H" ZDOTDIR="$H" zsh -ic 'TH_NO_COLOR=1 get_mac_help --everything; print "rc=$?"' 2>&1)
+{ [ "$(count "$out" "I do not know the option")" -ge 1 ] && [ "$(count "$out" "rc=2")" -ge 1 ]; } \
+  && ok "an unknown option is reported and exits non-zero, not swallowed" \
+  || bad "an unknown option was ignored"
+
+# Two topics that name each other is a reasonable thing to write, and under
+# --all it is a cycle. It must terminate, print each body once, and not shout.
+mkdir -p "$H/.zshrc-help.d"
+cat > "$H/.zshrc-help.d/alpha.help.sh" <<'EOF'
+# TH_TOPIC: alpha
+# TH_EMOJI: 🅰
+# TH_DESC:  alpha
+# TH_RELATED: beta
+_th_help_alpha() { th_row "A:" "ALPHA_BODY" }
+EOF
+cat > "$H/.zshrc-help.d/beta.help.sh" <<'EOF'
+# TH_TOPIC: beta
+# TH_EMOJI: 🅱
+# TH_DESC:  beta
+# TH_RELATED: alpha
+_th_help_beta() { th_row "B:" "BETA_BODY" }
+EOF
+out=$($TIMEOUT 15 env HOME="$H" ZDOTDIR="$H" COLUMNS=100 zsh -ic 'TH_NO_COLOR=1 COLUMNS=100 get_alpha_help --all' 2>&1)
+rc=$?
+if [ "$rc" -eq 124 ]; then
+  bad "two topics naming each other hung the shell under --all"
+elif [ "$(count "$out" "ALPHA_BODY")" -eq 1 ] && [ "$(count "$out" "BETA_BODY")" -eq 1 ]; then
+  ok "a TH_RELATED cycle under --all prints each topic exactly once"
+else
+  bad "a TH_RELATED cycle printed alpha $(count "$out" "ALPHA_BODY")x, beta $(count "$out" "BETA_BODY")x — expected 1 and 1"
+fi
+# ...and QUIETLY. Two topics naming each other is a reasonable thing to write,
+# not a mistake, so it must not produce the warning that exists for a hook
+# re-entering its own topic. Without the skip in th_show_related the guard
+# still stops the loop — but it stops it by shouting at someone who did
+# nothing wrong, and a warning that fires on correct usage is one people learn
+# to scroll past.
+[ "$(count "$out" "refusing to re-enter")" -eq 0 ] \
+  && ok "...and says nothing, because naming each other is not a mistake" \
+  || bad "a legitimate TH_RELATED cycle triggered the re-entrancy warning"
+rm -f "$H/.zshrc-help.d/alpha.help.sh" "$H/.zshrc-help.d/beta.help.sh"
 
 # --- 7. quiet mode loads settings, it only silences the banner ------------
 out=$(HOME="$H" ZDOTDIR="$H" TH_QUIET=1 zsh -i -c 'print DONE' 2>&1)
