@@ -5,6 +5,7 @@
 # TH_DESC:  Python — uv, virtualenvs, uvicorn
 # TH_ALSO:  get_uv_help | 📦 | uv: projects, dependencies, venvs
 # TH_ALSO:  get_uvicorn_help | ⚡ | uvicorn and FastAPI launch lines
+# TH_RELATED: pytest
 
 _th_help_python() {
     th_head "🐍" "Python"
@@ -16,6 +17,9 @@ _th_help_python() {
     th_note "does not have to be the right version — or exist at all"
     print -r --
     get_uv_help
+    # Summary ends here. Everything below is the --detailed view.
+    th_detail || return
+
     get_uvicorn_help
 }
 

@@ -13,11 +13,11 @@ CI (`.github/workflows/ci.yml`, one job named `gate`) runs six steps, and all
 six run locally:
 
 ```sh
-bash scripts/check-syntax.sh                        # 26 files, zsh + bash parsers
+bash scripts/check-syntax.sh                        # 27 files, zsh + bash parsers
 bash scripts/test-user-file-loads.sh                # 34 assertions in a throwaway HOME
 bash scripts/test-user-file-loads.sh --self-check   # must FAIL — proves the above can
 bash scripts/test-macos-bash.sh                     # 24 assertions, installer under real bash 3.2 (docker)
-bash scripts/test-behaviour.sh                      # 143 pytest assertions driving a real zsh
+bash scripts/test-behaviour.sh                      # 165 pytest assertions driving a real zsh
 bash scripts/test-behaviour.sh --self-check         # must FAIL — proves the above can
 ```
 
@@ -157,12 +157,14 @@ Two consequences worth knowing before touching `th_show_topic`:
 - **A related topic is shown at SUMMARY depth and expansion stops after one
   level.** Neither is incidental: showing a neighbour in full is the original
   complaint, and walking the graph turns one question into the whole manual.
-- **`th_show_related` skips a topic already on `_th_topic_stack`, silently.**
-  Two topics naming each other is a reasonable thing to write, and the loud
-  re-entrancy warning is for a hook re-entering its OWN topic — a mistake.
-  Without the skip the cycle still terminates, so the assertion covering it
-  asserts the SILENCE, not the termination. A warning that fires on correct
-  usage is one people learn to scroll past.
+- **`th_show_related` skips a topic already on `_th_topic_stack`, silently —
+  and what that catches is a topic listing ITSELF in `TH_RELATED`.** It is not
+  what keeps a mutual pair quiet: expansion is one level, so `python` and
+  `pytest` never re-enter each other at all. This entry claimed otherwise for a
+  release, and the correction came from a plant — removing the skip left every
+  test passing, which meant the line was covered by nothing. The reachable case
+  now has its own assertion. A warning that fires on correct usage is one
+  people learn to scroll past, so the skip stays.
 
 ## Two shapes of user content, and what they cost
 

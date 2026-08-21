@@ -301,12 +301,20 @@ th_show_related() {  # th_show_related <topic> named|summary
 
     if [[ $mode == summary ]]; then
         for r in $related; do
-            # Already on the stack: it is printing further up the chain, so
-            # printing it again would be a duplicate at best. A cycle in
-            # TH_RELATED is a reasonable thing to write — two topics that each
-            # point at the other — so this is a skip, not a complaint. The loud
-            # warning in th_show_topic stays for the pathological case, a hook
-            # that re-enters its OWN topic.
+            # Already on the stack: printing it again would be a duplicate at
+            # best, so skip it quietly rather than letting th_show_topic's
+            # guard shout at somebody who did nothing wrong.
+            #
+            # What this actually catches is a topic that lists ITSELF in
+            # TH_RELATED. It is NOT what makes a mutual pair (python names
+            # pytest, pytest names python) quiet — expansion is one level, so
+            # the nested call never expands its own related topics and the pair
+            # cannot re-enter in the first place. That distinction was got
+            # wrong in the comment here for one release: the belief was that
+            # this line held the mutual case, and a plant proved otherwise by
+            # removing it and watching every test still pass. The reachable
+            # case is `# TH_RELATED: <its own name>`, which without this line
+            # prints the re-entrancy warning during ordinary use.
             (( ${_th_topic_stack[(I)$r]} )) && continue
             th_defined "get_${r}_help" || continue
             # SUMMARY, and no further expansion. One level out, deliberately:

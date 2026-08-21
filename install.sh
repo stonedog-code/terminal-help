@@ -284,7 +284,11 @@ choose_topics() {  # everything here goes to stderr; only the list is stdout
     for i in "${!names[@]}"; do
         case "${names[$i]}" in
             "$platform") default_list="$default_list ${names[$i]}" ;;
-            git|python)  default_list="$default_list ${names[$i]}" ;;
+            # python names pytest as a related topic and pytest names python
+            # back. Shipping one half of that by default leaves the other half
+            # showing as "not loaded" to everyone who never chose topics, which
+            # is a worse first impression than one more entry in the default.
+            git|python|pytest) default_list="$default_list ${names[$i]}" ;;
         esac
     done
     default_list="${default_list# }"
