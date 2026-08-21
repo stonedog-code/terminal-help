@@ -1,10 +1,15 @@
 # The merge gate for terminal-help.
 #
-# There are no tests and there cannot usefully be any: this code's job is to
-# print a cheat-sheet into an interactive terminal. What it can guarantee is
-# that nothing here is syntactically broken — which matters more than usual,
-# because lib/*.zsh is sourced from a real person's ~/.zshrc, so a syntax error
-# breaks their shell rather than a test run.
+# The code's job is to print a cheat-sheet into an interactive terminal, so the
+# CONTENT is not testable — a help file earns its confidence from zsh -n and
+# from someone reading the rendered output. The MACHINERY around it is very
+# testable, and is tested three ways here: it parses, it loads a real
+# ~/.zshrc-user.sh in a throwaway HOME, and it prints what it should when
+# driven from a real zsh.
+#
+# Parsing matters more than usual because lib/*.zsh is sourced from a real
+# person's ~/.zshrc, so a syntax error breaks their shell rather than a test
+# run.
 name: CI
 
 on:
@@ -62,3 +67,22 @@ jobs:
       # containerised, and the only part of macOS that has bitten us.
       - name: Gate — the installer works on macOS's bash (3.2)
         run: bash scripts/test-macos-bash.sh
+
+      # The behaviour tier. pytest is the HARNESS, not the subject — every
+      # assertion is about the output of a real zsh. It exists because this is
+      # a matrix (topics x flag combinations x line counts) and a matrix
+      # written as linear bash is a thousand lines nobody reads.
+      #
+      # uv is NOT preinstalled on ubuntu-latest. test-behaviour.sh treats a
+      # missing uv as a failure rather than a skip, so forgetting this step
+      # turns the gate red instead of quietly dropping a whole tier.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Gate — behaviour, driving a real zsh
+        run: bash scripts/test-behaviour.sh
+
+      # And again: a tier that cannot fail proves nothing. This plants a real
+      # defect in a COPY of the tree and requires a NAMED test to catch it.
+      - name: Gate — the behaviour tier can actually fail
+        run: bash scripts/test-behaviour.sh --self-check
