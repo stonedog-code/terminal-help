@@ -14,7 +14,7 @@ four run locally:
 
 ```sh
 bash scripts/check-syntax.sh                        # 24 files, zsh + bash parsers
-bash scripts/test-user-file-loads.sh                # 21 assertions in a throwaway HOME
+bash scripts/test-user-file-loads.sh                # 26 assertions in a throwaway HOME
 bash scripts/test-user-file-loads.sh --self-check   # must FAIL — proves the above can
 bash scripts/test-macos-bash.sh                     # 22 assertions, installer under real bash 3.2 (docker)
 ```
@@ -36,6 +36,25 @@ prints on **every shell**, so it is what a person reads back when they say what
 they are running — and a version covering three different states of the code
 identifies none of them. This was got wrong on #22 and #23, and needed #24 to
 repair it.
+
+## Every command has an `_info` twin, and it is generated
+
+`get_git_help` and `get_git_info` are one command. `th_info_twin` in
+`lib/topics.zsh` makes the second name from the first, and it is called from
+three places: the topic entry-point generator, the `TH_ALSO` loop, and
+`homebrew.help.sh` for the hand-written `get_brew_help`. Never write an `_info`
+function by hand — a twin that drifts from its `_help` is worse than no twin.
+
+**A function, not an alias**, and that is not a style choice: an alias defined
+and used in the same parse unit is not expanded, so it would not work from a
+script or from inside another function, and `whence -w` — which
+`get_help_topics` is built on — cannot see one.
+
+**`th_info_twin` validates before it evals, and that validation is
+load-bearing.** The name reaches it from a `TH_ALSO` comment in a file this
+tool did not write, so without the check a header line is arbitrary code at
+shell startup. There is an assertion for exactly that; removing the validation
+makes a header run `touch`.
 
 ## Two shapes of user content, and what they cost
 

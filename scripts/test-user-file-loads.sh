@@ -303,6 +303,66 @@ out=$($TIMEOUT 15 env HOME="$H" ZDOTDIR="$H" zsh -ic 'print DONE' 2>&1)
 [ "$(count "$out" "print itself forever")" -ge 1 ]   && ok "th_extend <topic> get_<topic>_help is refused at registration"   || bad "th_extend accepted a topic's own entry point as one of its hooks"
 rm -f "$H/.zshrc-help.d/loop.help.sh"
 
+# --- 6e. every command answers to _info as well as _help -------------------
+# People reach for whichever word they think in, and being wrong about which
+# one this tool picked is a `command not found` for something that is right
+# there. Asserted as EQUALITY of output, not merely as "the name exists": a
+# twin that resolves to a different function is worse than no twin.
+out=$(HOME="$H" ZDOTDIR="$H" COLUMNS=100 zsh -ic '
+    TH_NO_COLOR=1
+    a=$(COLUMNS=100 get_git_help); b=$(COLUMNS=100 get_git_info)
+    [[ -n $a && $a == $b ]] && print TWIN_MATCHES || print TWIN_DIFFERS
+    for f in get_git_info get_git_branch_info get_info get_info_topics; do
+        whence -w $f > /dev/null 2>&1 || print "MISSING $f"
+    done' 2>&1)
+[ "$(count "$out" "TWIN_MATCHES")" -ge 1 ] \
+  && ok "get_git_info prints exactly what get_git_help prints" \
+  || bad "get_git_info is missing or prints something else"
+if [ "$(count "$out" "MISSING")" -eq 0 ]; then
+  ok "sub-sections and the framework commands have _info twins too"
+else
+  bad "some _info twins are undefined:"
+  printf '%s\n' "$out" | grep MISSING | sed 's/^/      /'
+fi
+
+# A topic of the user's own gets its twins from the same generator — no
+# special-casing, which is the point of generating them at all.
+mkdir -p "$H/.zshrc-help.d"
+cat > "$H/.zshrc-help.d/deploy.help.sh" <<'EOF'
+# TH_TOPIC: deploy
+# TH_EMOJI: 🚀
+# TH_DESC:  our deploy runbook
+# TH_ALSO:  get_deploy_smoke_help | 💨 | the smoke test
+_th_help_deploy() { th_row "Staging:" "make deploy" }
+get_deploy_smoke_help() { th_row "Smoke:" "make smoke" }
+EOF
+out=$(HOME="$H" ZDOTDIR="$H" zsh -ic 'whence -w get_deploy_info get_deploy_smoke_info' 2>&1)
+[ "$(count "$out" "function")" -eq 2 ] \
+  && ok "a user's own topic and its sub-section both get _info twins" \
+  || bad "a user topic did not get its twins"
+
+# THE GUARD THAT MATTERS. Generating the twin means eval'ing a name that came
+# out of a header comment in a file terminal-help did not write. If that name
+# is not validated first, a TH_ALSO line is arbitrary code at shell startup.
+cat > "$H/.zshrc-help.d/deploy.help.sh" <<EOF
+# TH_TOPIC: deploy
+# TH_EMOJI: 🚀
+# TH_DESC:  our deploy runbook
+# TH_ALSO:  get_x_help; touch $TMP/PWNED; : | 💀 | injection
+_th_help_deploy() { th_row "Staging:" "make deploy" }
+EOF
+rm -f "$TMP/PWNED"
+out=$(HOME="$H" ZDOTDIR="$H" zsh -ic 'print DONE' 2>&1)
+if [ -e "$TMP/PWNED" ]; then
+  bad "a TH_ALSO header executed a command — the twin generator eval's unvalidated names"
+else
+  ok "a TH_ALSO name that is not a plain function name is refused, not eval'd"
+fi
+[ "$(count "$out" "cannot make an _info twin")" -ge 1 ] \
+  && ok "...and it says so rather than failing silently" \
+  || bad "the rejection was silent"
+rm -f "$H/.zshrc-help.d/deploy.help.sh"
+
 # --- 7. quiet mode loads settings, it only silences the banner ------------
 out=$(HOME="$H" ZDOTDIR="$H" TH_QUIET=1 zsh -i -c 'print DONE' 2>&1)
 [ "$(count "$out" "$MARKER top-level")" -ge 1 ] \

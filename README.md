@@ -325,6 +325,16 @@ Silence even the version line with `TH_QUIET=1` (put it in `~/.zshenv`, or
 
 ## The topics
 
+**Every command below also answers to `_info`.** `get_git_help` and
+`get_git_info` are the same command; so are `get_help` and `get_info`,
+`get_help_topics` and `get_info_topics`. You reach for whichever word you think
+in, and being wrong about which one this tool happened to pick should not be a
+`command not found` for something that is right there. The twins are generated,
+not maintained by hand, so a topic of your own gets them too.
+
+Only the `_help` spelling is listed here and in `get_help_topics` — printing
+both of every command would double a list whose whole job is to be readable.
+
 | Command | |
 |---|---|
 | `get_help` | ❓ the curated index (alias: `help_me`) |
@@ -392,8 +402,16 @@ _th_help_git() {
 }
 ```
 
-`get_git_help` is **generated** from that header. You never write it, which is
-what lets someone else extend your topic without editing your file.
+`get_git_help` is **generated** from that header — and so is `get_git_info`,
+and `get_git_worktree_info` for the `TH_ALSO` line. You never write any of
+them, which is what lets someone else extend your topic without editing your
+file.
+
+One consequence worth knowing if you write a `TH_ALSO` line: the function name
+in it is validated against `get_<lowercase>_help` before the twin is generated,
+because generating it means `eval`-ing a name that came out of a comment in a
+file terminal-help did not write. A name that is not a plain function name is
+refused, out loud, and nothing is executed.
 
 **PowerShell is content, not a runtime.** terminal-help does not run in
 PowerShell; `get_powershell_help` is a reference — the profile, execution
@@ -496,7 +514,7 @@ Both paths work; only one of them can ever be in the blast radius.
 `get_help` is the curated index: topics in a deliberate order, with their
 sub-sections. `get_help_topics` is the flat one, **discovered at runtime** —
 every `get_*_help` function actually defined in this shell, wherever it came
-from:
+from (each of which also answers to `_info`, as above):
 
 ```
   📦 From terminal-help (8)
@@ -654,11 +672,11 @@ Run against a real zsh 5.9, not eyeballed:
   block, uninstall removes the runtime and keeps both of your directories.
 - **A behaviour test** — `scripts/test-user-file-loads.sh` installs into a
   throwaway `$HOME`, starts a real zsh, and asserts that `source ~/.zshrc`
-  prints what `~/.zshrc-user.sh` puts there: 21 assertions covering the
+  prints what `~/.zshrc-user.sh` puts there: 26 assertions covering the
   explicit source, an interactive shell, loading exactly once, functions and
   aliases surviving, an **old rc block with no `th_source_user` line**, and
   `TH_QUIET`. `--self-check` plants the regression and requires the suite to
-  catch it — with the fallback removed, 2 of the 21 fail, which is the point.
+  catch it — with the fallback removed, 2 of the 26 fail, which is the point.
 - **macOS's bash, without a Mac** — `scripts/test-macos-bash.sh` runs the
   installer under the official `bash:3.2` image (what macOS ships, frozen in
   2007): 22 assertions covering parsing, a full install, the files it writes,
@@ -672,6 +690,12 @@ Run against a real zsh 5.9, not eyeballed:
   seconds, ended by `timeout`). It is refused at registration when written the
   obvious way, and refused again in `th_show_topic` when reached through a
   wrapper. Both proved non-vacuous by removing each guard in turn.
+- **`_help` and `_info` are the same command** — asserted as equality of
+  output, not merely as "the name exists": `get_git_info` prints byte-identical
+  text to `get_git_help`, sub-sections and user topics get twins from the same
+  generator, and a `TH_ALSO` name that is not a plain function name is refused
+  rather than `eval`-ed. Proved non-vacuous by removing the validation and
+  watching a header comment run `touch`.
 - **Off a tty, the layout is unchanged** — `COLUMNS` is `0` there, not empty,
   and a fallback that tested only for emptiness gave `th_wrap` a negative width
   and emitted one word per line. Piped output and an 80-column terminal are now
