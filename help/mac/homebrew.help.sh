@@ -72,5 +72,7 @@ _th_help_homebrew() {
     th_note "only if a versioned formula exists — brew does not keep old builds"
 }
 
-# The two names people actually type.
-get_brew_help() { get_homebrew_help }
+# The two names people actually type. th_info_twin gives it get_brew_info, so
+# all four spellings work: brew/homebrew × help/info.
+get_brew_help() { get_homebrew_help "$@" }
+th_info_twin get_brew_help

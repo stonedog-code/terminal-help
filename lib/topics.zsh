@@ -51,6 +51,35 @@ th_header_fields() {  # every value of a repeatable field, one per line
     done < <(head -n 20 -- "$1" 2>/dev/null)
 }
 
+# Every command answers to two names: `_help` and `_info`. People reach for
+# whichever word they think in, and being wrong about which one this tool chose
+# is a `command not found` for something that is right there.
+#
+# A generated FUNCTION, never an alias. Measured in zsh: an alias defined and
+# used in the same parse unit is not expanded — `alias get_mac_info=get_mac_help`
+# then calling it fails with `command not found` — so it would not work from a
+# script, or from inside another function, which is most of the ways one command
+# reaches another here. Aliases are also invisible to the `whence -w` discovery
+# get_help_topics is built on.
+#
+# Underscores, not dashes. `get-mac-help` is a perfectly valid zsh function
+# name, so this is taste rather than capability: the rest of the tool is
+# underscore-idiomatic (get_help, get_versions, th_doctor), a dashed name reads
+# like an external binary in `which` output, and a second separator on top of
+# the twin would mean four names per topic for get_help_topics to render.
+th_info_twin() {  # th_info_twin <get_x_help>  ->  defines get_x_info
+    local fn=$1
+    setopt localoptions extended_glob
+    # The name reaches here from a TH_ALSO header in a file this tool did not
+    # write, and it is about to be eval'd. Validate before, not after.
+    if [[ $fn != get_[a-z0-9_]##_help ]]; then
+        th_warn "cannot make an _info twin for '$fn'"
+        th_note "the name must look like get_<something>_help, lowercase"
+        return 1
+    fi
+    eval "${fn%_help}_info() { $fn \"\$@\" }"
+}
+
 # Register a topic from its file, then generate its entry point.
 th_load_topic_file() {  # th_load_topic_file <file> [category]
     setopt localoptions extended_glob
@@ -80,6 +109,7 @@ th_load_topic_file() {  # th_load_topic_file <file> [category]
     # Generated entry point. The name is validated above, so this eval expands
     # nothing a help file controls beyond [a-z0-9_].
     eval "get_${name}_help() { th_show_topic ${name} }"
+    th_info_twin "get_${name}_help"
 
     # Secondary functions the file wants listed in the index, indented.
     for also in ${(f)"$(th_header_fields "$file" TH_ALSO)"}; do
@@ -88,6 +118,10 @@ th_load_topic_file() {  # th_load_topic_file <file> [category]
         local ae=${${rest%%|*}##[[:space:]]#}; ae=${ae%%[[:space:]]#}
         local ad=${${rest#*|}##[[:space:]]#}
         [[ -n $fn ]] || continue
+        # Sub-sections are commands too, so they get the twin as well. This is
+        # also the first thing to eval a name out of a TH_ALSO header, which is
+        # why th_info_twin validates rather than trusting the file.
+        th_info_twin "$fn"
         if [[ -z ${TH_ALSO_DESC[$fn]+set} ]]; then TH_ALSO_ORDER+=("$fn"); fi
         TH_ALSO_DESC[$fn]="$ae $ad"
         TH_ALSO_PARENT[$fn]=$name

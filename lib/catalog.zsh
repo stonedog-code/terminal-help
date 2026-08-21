@@ -44,6 +44,10 @@ get_help_topics() {
     done
 
     th_sub "📦" "From terminal-help (${#package_cmds})"
+    # Listed once, under the _help name. The twins are real functions, but
+    # printing both spellings of every command would double a list whose whole
+    # job is to be readable — so the rule is stated once and applied to all.
+    th_note "each of these also answers to _info — get_git_help = get_git_info"
     for fn in ${package_cmds}; do
         topic=${owner[$fn]:-}
         if [[ -n ${TH_ALSO_DESC[$fn]} ]]; then
@@ -90,11 +94,16 @@ get_help_topics() {
     get_terminal_help_usage
 }
 
+# The twin for this one, like get_info, has to be written out: there is no
+# topic name in the middle for the generator to strip.
+get_info_topics() { get_help_topics "$@" }
+
 # The generic "how do I drive this thing" half.
 get_terminal_help_usage() {
     th_sub "🧰" "Using terminal-help"
     th_row "get_help"        "the curated index — topics in order, with sub-sections"
     th_row "get_help_topics" "this: every command that exists, flat and discovered"
+    th_note "both have _info twins too: get_info, get_info_topics"
     th_row "th_topics"       "what is on, what is off, and turn things on or off"
     th_row "th_doctor"       "why isn't my help — or my settings file — loading?"
     th_row "get_versions"    "what is installed on this machine"

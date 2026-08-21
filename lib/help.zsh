@@ -9,6 +9,7 @@ get_help() {
 
     th_row "get_help"        "❓ this list"
     th_row "get_help_topics" "📋 every help command, and how to drive this tool"
+    th_note "every name below also answers to _info: get_git_info, get_mac_info"
     th_row "get_versions"    "🖥  what is installed on this machine"
     th_row "th_topics"       "🗂 turn help topics on and off"
     th_row "th_doctor"       "🩺 why isn't my help or my settings file loading?"
@@ -103,6 +104,10 @@ _th_user_settings_section() {
         th_note "its own header comments say what it can hold"
     fi
 }
+
+# get_help is the one command whose twin the generator cannot make: it has no
+# topic name in the middle for `get_<topic>_help` to strip.
+get_info() { get_help "$@" }
 
 # The one line printed when a shell starts.
 th_banner() {
