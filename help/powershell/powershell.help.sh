@@ -18,8 +18,12 @@ _th_help_powershell() {
     th_row "Find a command:"     "Get-Command {name}"
     th_row "Read its docs:"      "Get-Help {cmdlet} -Examples"
     th_note "Get-Help is PowerShell's own; nothing to do with this tool"
-    print -r --
+
     get_powershell_profile_help
+
+    # Summary ends here. Everything below is the --detailed view.
+    th_detail || return
+
     get_powershell_cmdlets_help
 }
 

@@ -27,8 +27,13 @@ _th_help_mac() {
     th_row "Show hidden files:"  "defaults write com.apple.finder AppleShowAllFiles -bool true"
     th_row ""                    "killall Finder    (to apply either change)"
 
+    # Summary ends here. Everything below is the --detailed view.
+    th_detail || return
+
     # A sub-section of THIS topic (TH_ALSO), so it prints as part of it: where
-    # the cursor keys go is macOS, not a neighbouring subject.
+    # the cursor keys go is macOS, not a neighbouring subject. It is below the
+    # cut because it is four screens of key bindings, not because it belongs to
+    # somewhere else.
     get_mac_keys_help
 }
 

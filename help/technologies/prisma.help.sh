@@ -28,6 +28,9 @@ _th_help_prisma() {
     th_note "which then rejects a schema written for the pinned major, with"
     th_note "confident errors naming real lines. npm ci first, in a fresh tree."
 
+    # Summary ends here. Everything below is the --detailed view.
+    th_detail || return
+
     get_prisma_migrate_help
 
     th_sub "🔌" "Connections"

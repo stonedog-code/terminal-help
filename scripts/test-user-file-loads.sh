@@ -378,9 +378,18 @@ if [ "$(count "$mac" "brew bundle dump")" -eq 0 ]; then
 else
   bad "get_mac_help still inlines the whole homebrew topic"
 fi
-[ "$(count "$all" "brew bundle dump")" -ge 1 ] \
-  && ok "get_mac_help --all does print the related topic" \
+# `brew leaves` is in homebrew's SUMMARY; this probe used to be `brew bundle
+# dump`, which is now homebrew DETAIL. The flip is deliberate and is the
+# specification changing, not the test being loosened: --all shows a neighbour
+# at summary depth, so probing for the neighbour's detail would assert the
+# opposite of what --all is now for. The old string still has a home — the
+# assertion two blocks down uses it to prove the neighbour is NOT expanded.
+[ "$(count "$all" "brew leaves")" -ge 1 ] \
+  && ok "get_mac_help --all does print the related topic's summary" \
   || bad "--all did not bring in the related topic"
+[ "$(count "$all" "Reproducing a machine")" -eq 0 ] \
+  && ok "...at SUMMARY depth — the neighbour is not printed in full" \
+  || bad "--all printed the whole related topic, not its summary"
 
 # Named, not silently dropped: the whole justification for deferring it is that
 # the name IS the command, so the name has to be there.
@@ -390,7 +399,7 @@ fi
 
 # The twin has to forward its arguments, or --all works on one spelling only.
 out=$(HOME="$H" ZDOTDIR="$H" COLUMNS=100 zsh -ic 'TH_NO_COLOR=1 COLUMNS=100 get_mac_info --all' 2>&1)
-[ "$(count "$out" "brew bundle dump")" -ge 1 ] \
+[ "$(count "$out" "brew leaves")" -ge 1 ] \
   && ok "get_mac_info --all works too — the _info twin forwards arguments" \
   || bad "the _info twin swallowed --all"
 

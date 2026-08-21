@@ -34,6 +34,9 @@ _th_help_docker() {
     th_row "How it was built:"   "docker inspect {container}"
     th_row "What changed on disk:" "docker diff {container}"
 
+    # Summary ends here. Everything below is the --detailed view.
+    th_detail || return
+
     th_sub "🏗" "Build"
     th_row "Build and tag:"      "docker build -t {name}:{tag} ."
     th_row "For another arch:"   "docker build --platform linux/amd64 -t {name}:{tag} ."

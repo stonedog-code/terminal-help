@@ -24,6 +24,9 @@ _th_help_copilot() {
     th_row "Scope it:"          "@workspace   the repo    ·    @terminal   the last output"
     th_row ""                   "#file:src/app.ts   pin one file into the question"
     print -r --
+    # Summary ends here. Everything below is the --detailed view.
+    th_detail || return
+
     get_copilot_files_help
     get_copilot_cli_help
 }

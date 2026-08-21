@@ -23,6 +23,9 @@ _th_help_git() {
     th_note "--force-with-lease, never --force: it refuses if someone pushed since your last fetch"
     print -r --
     get_git_branch_help
+    # Summary ends here. Everything below is the --detailed view.
+    th_detail || return
+
     get_git_worktree_help
     get_git_pr_help
 }

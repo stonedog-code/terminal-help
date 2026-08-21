@@ -24,6 +24,9 @@ _th_help_homebrew() {
     th_note "leaves = things you installed on purpose, not their dependencies —"
     th_note "the list worth putting in a Brewfile"
 
+    # Summary ends here. Everything below is the --detailed view.
+    th_detail || return
+
     th_sub "⬆️" "Upgrading, and why it surprises people"
     th_row "Refresh the index:" "brew update"
     th_row "Upgrade everything:" "brew upgrade"

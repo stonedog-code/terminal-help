@@ -28,6 +28,9 @@ _th_help_claude() {
     th_row "Run a shell command:" "start a line with !  — output lands in the transcript"
     th_row "Reference a file:"  "@path/to/file    (tab-completes)"
     print -r --
+    # Summary ends here. Everything below is the --detailed view.
+    th_detail || return
+
     get_claude_files_help
     get_claude_tips_help
 }
