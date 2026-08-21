@@ -13,10 +13,10 @@ CI (`.github/workflows/ci.yml`, one job named `gate`) runs four steps, and all
 four run locally:
 
 ```sh
-bash scripts/check-syntax.sh                        # 21 files, zsh + bash parsers
-bash scripts/test-user-file-loads.sh                # 18 assertions in a throwaway HOME
+bash scripts/check-syntax.sh                        # 24 files, zsh + bash parsers
+bash scripts/test-user-file-loads.sh                # 21 assertions in a throwaway HOME
 bash scripts/test-user-file-loads.sh --self-check   # must FAIL — proves the above can
-bash scripts/test-macos-bash.sh                     # 19 assertions, installer under real bash 3.2 (docker)
+bash scripts/test-macos-bash.sh                     # 22 assertions, installer under real bash 3.2 (docker)
 ```
 
 **A missing parser is a failure, not a skip.** No zsh on the box means the zsh
