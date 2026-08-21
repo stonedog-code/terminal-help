@@ -1,0 +1,24 @@
+# The behaviour tier. terminal-help is zsh; Python is here only to DRIVE it.
+#
+# Why a second test tier at all: scripts/test-user-file-loads.sh answers
+# "does a real ~/.zshrc load a real ~/.zshrc-user.sh", and it does that well.
+# What it cannot express is a matrix — twelve topics times five flag
+# combinations times a line-count assertion each — without becoming a thousand
+# lines of hand-rolled bash nobody will read. That is what pytest is for, and
+# nothing here tests Python: every assertion is about the output of a real zsh.
+[project]
+name = "terminal-help-tests"
+version = "0.0.0"
+description = "Behaviour tests for terminal-help: they drive a real zsh and read what it printed"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# -q keeps the gate readable; the collected count is printed either way, and
+# that count is the thing worth watching. A suite that silently collects fewer
+# tests than yesterday is the failure this repo keeps guarding against.
+addopts = "-q --strict-markers"

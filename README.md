@@ -720,12 +720,19 @@ Run against a real zsh 5.9, not eyeballed:
   catch it — with the fallback removed, 2 of the 33 fail, which is the point.
 - **macOS's bash, without a Mac** — `scripts/test-macos-bash.sh` runs the
   installer under the official `bash:3.2` image (what macOS ships, frozen in
-  2007): 22 assertions covering parsing, a full install, the files it writes,
+  2007): 24 assertions covering parsing, a full install, the files it writes,
   the truncation guard, and a scan for bash complaining about *anything*.
   `bash -n` here is bash 5 and passes `${var^^}` and associative arrays that
   3.2 rejects at runtime — proved by planting one and watching this catch it.
-- **The gate** — `bash scripts/check-syntax.sh`: 24 files, exit 0, and proved
+- **The gate** — `bash scripts/check-syntax.sh`: 26 files, exit 0, and proved
   non-vacuous by planting a syntax error in a help file and watching it fail.
+- **A behaviour tier** — `bash scripts/test-behaviour.sh`: 50 assertions that
+  start a real zsh at a fixed `COLUMNS`/`LINES`, run a command, and read what
+  it printed. Parametrised over every topic **discovered from the headers**, so
+  it covers the topic somebody adds next without anyone remembering to add it.
+  pytest is the harness, not the subject — nothing in `tests/` tests Python.
+  `--self-check` removes the `_info` twin generator and requires
+  `test_info_twin_matches_help` to go red **by name**.
 - **A topic cannot print itself forever** — an extension that re-enters its own
   topic used to hang the shell with no exit but Ctrl-C (44,495 lines in 8
   seconds, ended by `timeout`). It is refused at registration when written the

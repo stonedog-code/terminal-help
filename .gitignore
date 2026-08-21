@@ -32,3 +32,14 @@ zshrc-user.sh
 # continuously, so the window for a stray `git add -A` is always open, and this
 # repository is PUBLIC.
 .playwright-mcp/
+
+# --- the pytest behaviour tier ------------------------------------------------
+# .venv is NOT portable: it holds one machine's compiled extensions and an
+# absolute-path shebang in every console script. This repo is reachable over SMB
+# from a Mac and a Linux box at once, so scripts/uv-env.sh gives macOS its own
+# .venv-macos. Both are ignored; uv.lock is COMMITTED, so both machines resolve
+# the same versions.
+.venv/
+.venv-macos/
+__pycache__/
+.pytest_cache/

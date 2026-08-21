@@ -9,17 +9,27 @@ contract.
 
 ## The gate
 
-CI (`.github/workflows/ci.yml`, one job named `gate`) runs four steps, and all
-four run locally:
+CI (`.github/workflows/ci.yml`, one job named `gate`) runs six steps, and all
+six run locally:
 
 ```sh
-bash scripts/check-syntax.sh                        # 24 files, zsh + bash parsers
+bash scripts/check-syntax.sh                        # 26 files, zsh + bash parsers
 bash scripts/test-user-file-loads.sh                # 33 assertions in a throwaway HOME
 bash scripts/test-user-file-loads.sh --self-check   # must FAIL — proves the above can
-bash scripts/test-macos-bash.sh                     # 22 assertions, installer under real bash 3.2 (docker)
+bash scripts/test-macos-bash.sh                     # 24 assertions, installer under real bash 3.2 (docker)
+bash scripts/test-behaviour.sh                      # 50 pytest assertions driving a real zsh
+bash scripts/test-behaviour.sh --self-check         # must FAIL — proves the above can
 ```
 
-**A missing parser is a failure, not a skip.** No zsh on the box means the zsh
+**The two suites answer different questions, which is why both exist.**
+`test-user-file-loads.sh` asks whether a real `~/.zshrc` loads a real
+`~/.zshrc-user.sh` — installation and startup, in a throwaway `$HOME`.
+`test-behaviour.sh` asks what a command PRINTS, across a matrix of topics and
+flags. Written as linear bash the second one is a thousand lines nobody reads;
+`pytest` parametrises it. **Nothing in `tests/` tests Python** — every
+assertion is about the output of a real zsh, and pytest is only the harness.
+
+**A missing tool is a failure, not a skip** — `zsh`, `uv` and `docker` alike. No zsh on the box means the zsh
 files were not checked, and a run that quietly halves its coverage while
 printing OK is the failure this project keeps guarding against.
 
@@ -28,6 +38,26 @@ an interactive terminal — so a help file earns its confidence from `zsh -n` an
 from someone reading the rendered output, not from an assertion. That is why the
 parse gate matters more than usual: `lib/*.zsh` is sourced from a real person's
 `~/.zshrc`, so a syntax error breaks their shell, not a test run.
+
+## The pytest tier: what to know before adding to it
+
+- **`tests/conftest.py` scrubs every `TH_*` variable.** terminal-help *exports*
+  `TH_HOME`, `TH_VERSION` and `TH_USER_FILE`, so on a machine where it is
+  installed every child shell inherits them — including the one under test.
+  That already produced a red suite on a healthy tree (16/1 locally, 17/0 in
+  CI, identical code).
+- **`capture_load=True` is needed for anything warned at LOAD time.** Sourcing
+  is redirected to `/dev/null` by default so startup noise stays out of every
+  assertion — but `th_extend` and `th_info_twin` refuse bad input while the
+  file is being sourced, and with the default those warnings are invisible to
+  the test rather than absent from the tool. The first version of the harness
+  swallowed them and the failure read as a missing feature.
+- **Topics are DISCOVERED from the headers**, not listed. `test_topics_were_discovered`
+  guards the parametrised tests: an empty list would turn every one of them
+  into a green test over nothing.
+- **`.venv` is gitignored per platform** (`scripts/uv-env.sh` gives macOS
+  `.venv-macos`), because this repo is reachable over SMB from two machines at
+  once. `uv.lock` IS committed.
 
 ## Every PR bumps `VERSION`
 
