@@ -20,7 +20,7 @@ get_help() {
         th_row "get_${topic}_help" "${TH_TOPIC_EMOJI[$topic]} ${TH_TOPIC_DESC[$topic]}"
         [[ -n ${TH_TOPIC_EXTENDED[$topic]} ]] && th_note "extended by one of your own files"
         for fn in ${TH_ALSO_ORDER}; do
-            [[ ${TH_ALSO_PARENT[$fn]} == $topic ]] && th_defined "$fn" && th_row "  $fn" "${TH_ALSO_DESC[$fn]}"
+            [[ ${TH_ALSO_PARENT[$fn]} == $topic ]] && th_defined "$fn" && th_row "$fn" "${TH_ALSO_DESC[$fn]}"
         done
     done
 
@@ -59,7 +59,7 @@ _th_user_topics_section() {
         # exists and prints — get_pgbouncer_help — absent from the index that
         # is supposed to name it.
         for fn in ${TH_ALSO_ORDER}; do
-            [[ ${TH_ALSO_PARENT[$fn]} == $topic ]] && th_defined "$fn" && th_row "  $fn" "${TH_ALSO_DESC[$fn]}"
+            [[ ${TH_ALSO_PARENT[$fn]} == $topic ]] && th_defined "$fn" && th_row "$fn" "${TH_ALSO_DESC[$fn]}"
         done
     done
     return 0
