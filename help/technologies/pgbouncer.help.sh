@@ -21,6 +21,9 @@ _th_help_pgbouncer() {
     th_row "statement"           "returned after every statement"
     th_note "no multi-statement transactions at all; for autocommit workloads"
 
+    # Summary ends here. Everything below is the --detailed view.
+    th_detail || return
+
     th_sub "⚠️" "What transaction mode breaks"
     th_text "Anything that expects a connection to remember something:"
     th_row "Prepared statements:" "the plan lives on the server connection"

@@ -136,10 +136,86 @@ def _run(
     return Result(stdout=proc.stdout + proc.stderr, rc=proc.returncode)
 
 
+def _run_tty(
+    script: str,
+    *,
+    columns: int = 80,
+    lines: int = 40,
+    env: dict[str, str] | None = None,
+    timeout: float = 30.0,
+) -> Result:
+    """Same, but with a REAL pseudo-terminal on stdout.
+
+    Paging cannot be tested any other way. `th_page` keys on `[[ -t 1 ]]`,
+    which is exactly right — piping into a pager that nobody can interact with
+    would hang `get_git_help | grep push` forever — and it means a subprocess
+    with a pipe for stdout can only ever prove the negative. A pty proves the
+    positive: this is what a person actually gets.
+    """
+    import pty
+
+    environ = {k: v for k, v in os.environ.items() if k not in _SCRUB}
+    environ.update(
+        {
+            "COLUMNS": str(columns),
+            "LINES": str(lines),
+            "TH_QUIET": "1",
+            "TH_NO_COLOR": "1",
+            "TH_USER_HELP_DIR": "/nonexistent-th-user-dir",
+            "TERM": "xterm",  # not `dumb`, which th_use_color treats as no colour
+        }
+    )
+    if env:
+        environ.update(env)
+
+    body = (
+        f"source {REPO}/terminal-help.zsh > /dev/null 2>&1\n"
+        f"COLUMNS={columns}; LINES={lines}\n"
+        f"{script}\n"
+        "exit\n"
+    )
+
+    primary, secondary = pty.openpty()
+    proc = subprocess.Popen(
+        ["zsh", "-f"],
+        stdin=subprocess.PIPE,
+        stdout=secondary,
+        stderr=secondary,
+        env=environ,
+        cwd=REPO,
+        text=True,
+    )
+    os.close(secondary)
+    assert proc.stdin is not None
+    proc.stdin.write(body)
+    proc.stdin.close()
+
+    chunks: list[bytes] = []
+    try:
+        while True:
+            try:
+                data = os.read(primary, 65536)
+            except OSError:  # the secondary side closed
+                break
+            if not data:
+                break
+            chunks.append(data)
+    finally:
+        os.close(primary)
+    rc = proc.wait(timeout=timeout)
+    return Result(stdout=b"".join(chunks).decode(errors="replace"), rc=rc)
+
+
 @pytest.fixture
 def run():
     """Run a command in a freshly sourced terminal-help and return a Result."""
     return _run
+
+
+@pytest.fixture
+def run_tty():
+    """Same as `run`, but stdout is a real pseudo-terminal."""
+    return _run_tty
 
 
 def _discover_topics() -> list[str]:

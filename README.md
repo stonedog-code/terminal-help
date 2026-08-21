@@ -367,20 +367,86 @@ both of every command would double a list whose whole job is to be readable.
 
 Only selected topics are defined; `th_topics` shows the rest.
 
-## 🔗 Related topics, and `--all`
+## 📏 Four views, and the flags that pick them
 
-A topic prints **its own content**, then names anything related. `--all` prints
-the related topics as well:
+**A topic prints a summary. It is never more than one screen at 80×40** — that
+is a promise the test suite enforces per topic, not an intention. Two
+independent switches widen it: how much of *this* topic, and how much of its
+neighbours.
+
+| | this topic | related topics |
+|---|---|---|
+| `get_mac_help` | **summary** | named only |
+| `get_mac_help --detailed` | **all of it** | named only |
+| `get_mac_help --related` | summary | **each one's summary** |
+| `get_mac_help --all` | **all of it** | **each one's summary** |
+| `get_mac_help --help` | the flags, and what this topic is related to | |
+
+`-d`, `-r`, `-a`, `-h` are the short forms. **`--all` is exactly
+`--detailed --related`** — not a third mode but both switches thrown, and the
+two spellings are asserted to produce byte-identical output. Every flag works
+on the `_info` spelling too.
 
 ```
-$ get_mac_help                 # macOS. 67 lines.
+$ get_mac_help                 # macOS. 31 lines.
 
   🔗 Related topics
   get_homebrew_help        🍺 Homebrew — installing, upgrading, and the bits that bite
-                           ↳ get_mac_help --all prints these here as well
+                           ↳ get_mac_help --related summarises these here as well
+                           ↳ get_mac_help --detailed for the rest of it
 
-$ get_mac_help --all           # macOS and Homebrew. 132 lines.
+$ get_mac_help --detailed      # all of macOS. 76 lines, paged.
+$ get_mac_help --all           # all of macOS, plus a summary of Homebrew. 96 lines.
 ```
+
+**A related topic expands one level only.** If `a` names `b` and `b` names `c`,
+then `get_a_help --all` shows `a` and `b` and stops. Walking the graph is how
+one question turns into the whole manual, which is the complaint this started
+from.
+
+**A topic that already fits one page has no detailed view, and does not offer
+one.** `linux`, `python` and `windows` are the three; `--detailed` on them
+prints exactly what the summary does, and the `--detailed for the rest of it`
+hint is absent rather than lying.
+
+### How a topic declares the split
+
+One line, at the point where the summary should stop:
+
+```zsh
+_th_help_git() {
+    th_head "🌿" "Git"
+    ...the rows worth having on one screen...
+
+    # Summary ends here. Everything below is the --detailed view.
+    th_detail || return
+
+    th_sub "🌳" "Worktrees"
+    ...
+}
+```
+
+A guard rather than a second function, and the reason is drift: two bodies
+means the content exists twice and the summary stops matching the detail the
+first time somebody edits one of them. One body with a cut means the summary is
+**by construction a prefix** of the detailed view, which is itself asserted.
+
+The guard belongs in `_th_help_<topic>`, **not** at the top of a `TH_ALSO`
+sub-function. Both placements look right and two of the first nine landed in
+the wrong one; there is a test for the placement itself, because the failure it
+causes surfaces three steps away.
+
+### Paging
+
+The detailed view is paged when — and only when — stdout is a **terminal** and
+the output is taller than it. So `get_git_help --detailed` pages, a one-screen
+summary does not, and `get_git_help > notes.txt` and `get_git_help | grep push`
+are untouched: plain text, no pager, nothing to hang on.
+
+- `TH_NO_PAGER=1` turns it off.
+- `TH_PAGER` sets the command. The default is `less -R -F -X` — `-R` keeps the
+  colour, `-X` leaves the page in your scrollback after you quit, because a
+  help screen that vanishes when you press `q` is worse than no pager.
 
 **This used not to be a choice.** `get_mac_help` ended by calling
 `get_homebrew_help` outright, so at 100 columns it was 132 lines of which 69
@@ -713,11 +779,11 @@ Run against a real zsh 5.9, not eyeballed:
   block, uninstall removes the runtime and keeps both of your directories.
 - **A behaviour test** — `scripts/test-user-file-loads.sh` installs into a
   throwaway `$HOME`, starts a real zsh, and asserts that `source ~/.zshrc`
-  prints what `~/.zshrc-user.sh` puts there: 33 assertions covering the
+  prints what `~/.zshrc-user.sh` puts there: 34 assertions covering the
   explicit source, an interactive shell, loading exactly once, functions and
   aliases surviving, an **old rc block with no `th_source_user` line**, and
   `TH_QUIET`. `--self-check` plants the regression and requires the suite to
-  catch it — with the fallback removed, 2 of the 33 fail, which is the point.
+  catch it — with the fallback removed, 2 of the 34 fail, which is the point.
 - **macOS's bash, without a Mac** — `scripts/test-macos-bash.sh` runs the
   installer under the official `bash:3.2` image (what macOS ships, frozen in
   2007): 24 assertions covering parsing, a full install, the files it writes,
@@ -726,7 +792,7 @@ Run against a real zsh 5.9, not eyeballed:
   3.2 rejects at runtime — proved by planting one and watching this catch it.
 - **The gate** — `bash scripts/check-syntax.sh`: 26 files, exit 0, and proved
   non-vacuous by planting a syntax error in a help file and watching it fail.
-- **A behaviour tier** — `bash scripts/test-behaviour.sh`: 50 assertions that
+- **A behaviour tier** — `bash scripts/test-behaviour.sh`: 143 assertions that
   start a real zsh at a fixed `COLUMNS`/`LINES`, run a command, and read what
   it printed. Parametrised over every topic **discovered from the headers**, so
   it covers the topic somebody adds next without anyone remembering to add it.
@@ -738,6 +804,16 @@ Run against a real zsh 5.9, not eyeballed:
   seconds, ended by `timeout`). It is refused at registration when written the
   obvious way, and refused again in `th_show_topic` when reached through a
   wrapper. Both proved non-vacuous by removing each guard in turn.
+- **A summary fits one page** — every topic, measured at 80×40 including its
+  related-topics footer. The assertion names the file and tells you to move the
+  guard, because the fix is always the same one.
+- **The four views** — `--all` is byte-identical to `--detailed --related`;
+  `--related` deepens the neighbours and not this topic; `--all` deepens this
+  topic and shows neighbours at summary depth; expansion stops after one level.
+  Every flag on every topic through both the `_help` and `_info` spellings.
+- **The pager, on a real pseudo-terminal** — a long view pages, a short one
+  does not, `TH_NO_PAGER` is honoured, and colour survives the capture. A pipe
+  can only ever prove the negative here, so the tests allocate a pty.
 - **A topic prints its own content** — `get_mac_help` no longer inlines the
   homebrew topic (67 lines, not 132), still names `get_homebrew_help`, and
   `--all` brings it back. `get_mac_info --all` works too, so the twin forwards

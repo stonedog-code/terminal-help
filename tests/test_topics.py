@@ -56,14 +56,16 @@ def test_related_topic_is_named_but_not_printed(run):
 
 
 def test_all_expands_the_related_topic(run):
-    r = run("get_mac_help --all")
-    assert "brew bundle dump" in r
+    """`brew leaves` is in homebrew's SUMMARY. It used to be `brew bundle dump`,
+    which is now homebrew detail — and --all shows a neighbour at summary
+    depth, so probing for detail here would assert the wrong specification."""
+    assert "brew leaves" in run("get_mac_help --all")
 
 
 def test_all_reaches_through_the_info_twin(run):
     """The twin has to forward its arguments or --all works on one spelling
     only."""
-    assert "brew bundle dump" in run("get_mac_info --all")
+    assert "brew leaves" in run("get_mac_info --all")
 
 
 def test_topic_cannot_print_itself_forever(run, tmp_path):

@@ -128,8 +128,18 @@ th_load_topic_file() {  # th_load_topic_file <file> [category]
 
     # Generated entry point. The name is validated above, so this eval expands
     # nothing a help file controls beyond [a-z0-9_].
-    eval "get_${name}_help() { th_show_topic ${name} \"\$@\" }"
+    eval "get_${name}_help() { th_page th_show_topic ${name} \"\$@\" }"
     th_info_twin "get_${name}_help"
+
+    # Does this topic HAVE a detailed view? Read from the file rather than
+    # declared in the header, because the answer is simply whether the body
+    # contains a th_detail guard — and a header field asserting it separately
+    # is one more thing that can disagree with the code. A topic that fits one
+    # screen has no detail, and must not be offered a --detailed that shows
+    # nothing new.
+    if grep -q '^[[:space:]]*th_detail\b' "$file" 2>/dev/null; then
+        eval "_th_has_detail_${name}() { : }"
+    fi
 
     # Secondary functions the file wants listed in the index, indented.
     for also in ${(f)"$(th_header_fields "$file" TH_ALSO)"}; do
@@ -175,16 +185,24 @@ typeset -ga _th_topic_stack
 # that last one and leave the topic permanently refusing to print, which is a
 # worse bug than the one being fixed.
 th_show_topic() {
-    local topic=$1 hook ran=0 all=0 arg
+    local topic=$1 hook ran=0 arg
     shift
+
+    # Two independent axes, not one enum: how much of THIS topic, and how much
+    # of its neighbours. --all is not a third mode, it is both switches thrown,
+    # which is why `--detailed --related` and `--all` are the same command.
+    local view=summary related=named
 
     # An unknown flag is REPORTED, never swallowed. A tool that silently
     # ignores what you typed teaches you that it did what you asked.
     for arg in "$@"; do
         case $arg in
-            --all|-a) all=1 ;;
+            --detailed|--detail|-d) view=detailed ;;
+            --related|-r)           related=summary ;;
+            --all|-a)               view=detailed; related=summary ;;
+            --help|-h)              th_topic_usage "$topic"; return 0 ;;
             *)  th_warn "get_${topic}_help: I do not know the option '$arg'"
-                th_note "the only one is --all, which prints the related topics too"
+                th_note "try get_${topic}_help --help"
                 return 2 ;;
         esac
     done
@@ -197,6 +215,11 @@ th_show_topic() {
     fi
     local -a _th_topic_stack=($_th_topic_stack $topic)
 
+    # Dynamically scoped, exactly like the stack above, so th_detail can read it
+    # from inside a hook without the hook being handed anything. A help file
+    # writes `th_detail || return` and never mentions a variable.
+    local _th_view=$view
+
     for hook in ${=TH_TOPIC_HOOKS[$topic]}; do
         th_defined "$hook" || continue
         $hook
@@ -204,7 +227,62 @@ th_show_topic() {
     done
     (( ran )) || th_warn "no content is loaded for topic '$topic'"
 
-    th_show_related "$topic" $all
+    # Say the fuller view exists, and only when there IS one. Offering
+    # --detailed on a topic that has no detail is a promise the tool cannot
+    # keep, and the reader has no way to know which topics are which.
+    if [[ $view == summary ]] && th_defined "_th_has_detail_$topic"; then
+        # A blank line first, or the hint renders as a continuation of whatever
+        # th_note happened to end the body — it is indented the same way, so it
+        # reads as a caveat about the last command rather than about the topic.
+        print -r --
+        th_note "get_${topic}_help --detailed for the rest of it"
+    fi
+
+    th_show_related "$topic" "$related"
+}
+
+# Called from inside a help file, as a guard:
+#
+#     th_detail || return       # everything below is the detailed view
+#
+# A guard rather than a second hand-written body, and that choice is the whole
+# design. Two bodies means every topic's content exists twice and the summary
+# drifts from the detail the first time somebody edits one of them. One body
+# with a cut line means the summary is BY CONSTRUCTION a prefix of the detail,
+# so they cannot disagree — and adding the feature to twelve existing files was
+# choosing twelve cut points, not re-authoring 700 lines of cheat-sheet.
+#
+# Returns true (0) in the detailed view, false in the summary view. Outside a
+# topic — someone calling _th_help_git directly — it returns true, because a
+# bare call should print everything rather than silently truncate.
+th_detail() {
+    [[ ${_th_view:-detailed} == detailed ]]
+}
+
+# What --help prints. One place, so twelve topics cannot describe the same four
+# flags twelve slightly different ways.
+th_topic_usage() {  # th_topic_usage <topic>
+    local topic=$1
+    local -a related
+    related=(${=TH_TOPIC_RELATED[$topic]})
+
+    th_head "${TH_TOPIC_EMOJI[$topic]:-📄}" "get_${topic}_help — the views"
+    th_text "${TH_TOPIC_DESC[$topic]:-$topic help}"
+    print -r --
+    th_row "get_${topic}_help"             "a summary — never more than one screen"
+    th_row "  --detailed"                  "all of $topic, paged like less"
+    th_row "  --related"                   "the summary, plus a summary of each related topic"
+    th_row "  --all"                       "all of $topic, plus a summary of each related topic"
+    th_note "--all is exactly --detailed --related; the two spellings are one command"
+    th_row "  --help"                      "this"
+    print -r --
+    if (( ${#related} )); then
+        th_row "Related topics:" "${(j:, :)related}"
+    else
+        th_row "Related topics:" "none — $topic stands on its own"
+    fi
+    th_row "Also spelled:"  "get_${topic}_info, with any of the above"
+    th_note "TH_NO_PAGER=1 turns paging off; TH_PAGER sets the command"
 }
 
 # A related topic is NAMED by default and printed only under --all.
@@ -215,13 +293,13 @@ th_show_topic() {
 # for macOS help and getting mostly a package manager is not help, and there was
 # no way to say no. Naming it costs four lines and loses nothing, because the
 # name IS the command.
-th_show_related() {  # th_show_related <topic> <all?>
-    local topic=$1 all=$2 r
+th_show_related() {  # th_show_related <topic> named|summary
+    local topic=$1 mode=$2 r
     local -a related
     related=(${=TH_TOPIC_RELATED[$topic]})
     (( ${#related} )) || return 0
 
-    if (( all )); then
+    if [[ $mode == summary ]]; then
         for r in $related; do
             # Already on the stack: it is printing further up the chain, so
             # printing it again would be a duplicate at best. A cycle in
@@ -231,7 +309,11 @@ th_show_related() {  # th_show_related <topic> <all?>
             # that re-enters its OWN topic.
             (( ${_th_topic_stack[(I)$r]} )) && continue
             th_defined "get_${r}_help" || continue
-            th_show_topic "$r" --all
+            # SUMMARY, and no further expansion. One level out, deliberately:
+            # a neighbour's neighbours are not what was asked for, and letting
+            # it recurse turns "and what else should I know" into the whole
+            # manual — which is the complaint that started all of this.
+            th_show_topic "$r"
         done
         return 0
     fi
@@ -246,7 +328,49 @@ th_show_related() {  # th_show_related <topic> <all?>
             th_row "get_${r}_help" "not loaded — th_topics enable $r"
         fi
     done
-    th_note "get_${topic}_help --all prints these here as well"
+    th_note "get_${topic}_help --related summarises these here as well"
+}
+
+# --- paging -----------------------------------------------------------------
+# The detailed view runs to several pages, and a cheat-sheet that scrolls off
+# the top is one you cannot read. So page it — but ONLY when there is a person
+# and a terminal on the other end.
+#
+# Three things this must not break, all of them promises the README already
+# makes:
+#
+#   get_git_help > notes.txt     must be plain text, unpaged
+#   get_git_help | grep push     must not hang waiting for a pager
+#   a one-screen summary         must not be worth a pager at all
+#
+# The [[ -t 1 ]] test covers the first two. The height comparison covers the
+# third: paging output that already fits is how a tool earns a TH_NO_PAGER=1
+# in everybody's rc file.
+th_page() {  # th_page <command> [args...]
+    if [[ -n $TH_NO_PAGER || ! -t 1 ]]; then
+        "$@"
+        return
+    fi
+
+    local out rc
+    # TH_FORCE_COLOR because capturing makes stdout a pipe, and th_use_color
+    # would otherwise strip every escape from output that IS going to a
+    # terminal, just via less. See th_use_color.
+    out=$(TH_FORCE_COLOR=1 "$@"); rc=$?
+
+    local -a lines=("${(@f)out}")
+    if (( ${#lines} < $(th_rows) )); then
+        print -r -- "$out"
+        return $rc
+    fi
+
+    # -R  keep the colour we just forced
+    # -F  quit immediately if it turns out to fit after all
+    # -X  do NOT clear the screen on exit, so what you read stays in scrollback.
+    #     A help screen that vanishes when you press q is worse than no pager:
+    #     you page through it to find the command, quit, and it is gone.
+    print -r -- "$out" | ${=TH_PAGER:-less -R -F -X}
+    return $rc
 }
 
 # Called by a user's extension file: add to a topic you do not own.

@@ -14,10 +14,10 @@ six run locally:
 
 ```sh
 bash scripts/check-syntax.sh                        # 26 files, zsh + bash parsers
-bash scripts/test-user-file-loads.sh                # 33 assertions in a throwaway HOME
+bash scripts/test-user-file-loads.sh                # 34 assertions in a throwaway HOME
 bash scripts/test-user-file-loads.sh --self-check   # must FAIL — proves the above can
 bash scripts/test-macos-bash.sh                     # 24 assertions, installer under real bash 3.2 (docker)
-bash scripts/test-behaviour.sh                      # 50 pytest assertions driving a real zsh
+bash scripts/test-behaviour.sh                      # 143 pytest assertions driving a real zsh
 bash scripts/test-behaviour.sh --self-check         # must FAIL — proves the above can
 ```
 
@@ -86,12 +86,63 @@ tool did not write, so without the check a header line is arbitrary code at
 shell startup. There is an assertion for exactly that; removing the validation
 makes a header run `touch`.
 
+## Four views, one body, and where the cut goes
+
+A topic prints a **summary** by default and its full content under
+`--detailed`. Two independent switches, not one enum: `--detailed` is how much
+of *this* topic, `--related` is how much of its neighbours, and `--all` is
+both. That is why `--all` must stay byte-identical to `--detailed --related` —
+the moment it becomes its own branch the three views start to drift, and there
+is an equality assertion holding it.
+
+**The split is a guard, not a second function.** A help file writes
+`th_detail || return` at the point where the summary ends. Two bodies would
+mean the content exists twice and the summary stops matching the detail the
+first time somebody edits one; one body with a cut makes the summary a prefix
+of the detail **by construction**.
+
+**The guard goes in `_th_help_<topic>`, never at the top of a `TH_ALSO`
+sub-function.** Both placements look right and hide the same text from the
+summary — but the wrong one truncates that one sub-section rather than the
+topic, so a second sub-function below it still prints and the prefix property
+breaks. Two of the first nine landed there. `test_the_cut_is_inside_the_topic_body`
+asserts the cause, because the symptom (`test_detailed_is_strictly_more_than_summary`
+going red on `powershell`) is three steps away from it.
+
+**A topic that fits one page gets no guard and is offered no `--detailed`.**
+`_th_has_detail_<topic>` is defined by grepping the file for the guard, so the
+hint cannot promise a view that does not exist. Do not add a header field for
+this — a second declaration is a second thing that can disagree with the code.
+
+**`th_detail` returns TRUE when `_th_view` is unset**, so calling
+`_th_help_git` directly prints everything. Defaulting the other way would
+silently truncate output nobody asked to truncate.
+
+**Summary output is capped at 40 lines at 80 columns, per topic, by a test.**
+When it fails, move the guard earlier — the assertion says so by name.
+
+## Paging: `th_page` wraps every entry point
+
+- It pages only when stdout is a **terminal** and the output is taller than it.
+  `get_git_help | grep push` must not hang and `> notes.txt` must be plain
+  text, which is why the `[[ -t 1 ]]` test is load-bearing rather than
+  cosmetic.
+- **Measuring means capturing, and capturing makes stdout a pipe** — so
+  `th_use_color` would strip every escape from output that IS going to a
+  terminal. `TH_FORCE_COLOR` exists for exactly that one call and nothing else.
+- `th_rows` has the same shape as `th_cols` for the same reason: `LINES` is `0`
+  off a tty, not empty, so `${LINES:-24}` never fires where it is needed.
+- The pager tests allocate a **real pty**. A subprocess with a pipe on stdout
+  can only ever prove the negative.
+
 ## `TH_ALSO` and `TH_RELATED` are not the same thing
 
-`TH_ALSO` is a **sub-section of this topic**, defined in this file: it always
-prints, because it is part of the topic. `TH_RELATED` names a **separate
-topic** — its own file, its own `selected` entry, its own `th_topics enable` —
-and is only NAMED by default, printed under `--all`.
+`TH_ALSO` is a **sub-section of this topic**, defined in this file: it belongs
+to the topic and is governed by the topic's own cut — above `th_detail` it is
+in the summary, below it is in the detailed view. `TH_RELATED` names a
+**separate topic** — its own file, its own `selected` entry, its own
+`th_topics enable` — and is only NAMED by default, summarised under `--related`
+and `--all`, and never shown in full from somewhere else.
 
 Getting this backwards is what the mac topic did: `_th_help_mac` called
 `get_homebrew_help` outright, so `get_mac_help` was 132 lines of which 69 were
@@ -103,6 +154,9 @@ Two consequences worth knowing before touching `th_show_topic`:
 - **Every entry point forwards `"$@"`**, and so does `th_info_twin`. Drop the
   forwarding anywhere along that chain and `--all` works on one spelling of the
   command and not the other.
+- **A related topic is shown at SUMMARY depth and expansion stops after one
+  level.** Neither is incidental: showing a neighbour in full is the original
+  complaint, and walking the graph turns one question into the whole manual.
 - **`th_show_related` skips a topic already on `_th_topic_stack`, silently.**
   Two topics naming each other is a reasonable thing to write, and the loud
   re-entrancy warning is for a hook re-entering its OWN topic — a mistake.

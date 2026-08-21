@@ -25,6 +25,9 @@ _th_help_windows() {
     th_row "Environment var:"    "\$env:NAME = \"value\"        (this session)"
     th_row "Persist it:"         "[Environment]::SetEnvironmentVariable(\"NAME\",\"v\",\"User\")"
     print -r --
+    # Summary ends here. Everything below is the --detailed view.
+    th_detail || return
+
     th_sub "🔁" "WSL <-> Windows"
     th_row "Windows files:"      "/mnt/c/Users/{you}    (from inside WSL)"
     th_row "WSL files:"          "\\\\wsl\$\\Ubuntu\\home\\{you}  (from Explorer)"

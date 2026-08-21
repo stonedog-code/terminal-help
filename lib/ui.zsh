@@ -8,6 +8,13 @@
 th_use_color() {
     [[ -n $TH_NO_COLOR || -n $NO_COLOR ]] && return 1
     [[ $TERM == (dumb|) ]] && return 1
+    # The pager has to MEASURE the output before deciding whether to page it,
+    # and measuring means capturing, and capturing makes stdout a pipe — so the
+    # tty test below goes false and every colour silently comes back empty.
+    # That looks exactly like a working monochrome theme, which is the same
+    # trap th_load_colors already documents one level down. th_page sets this
+    # only when the REAL stdout it inherited was a terminal.
+    [[ -n $TH_FORCE_COLOR ]] && return 0
     [[ -t 1 ]]
 }
 
@@ -65,6 +72,18 @@ th_cols() {
     (( c == 0 )) && c=80        # no terminal at all
     (( c < 20 )) && c=20        # a real but absurd width: keep th_wrap positive
     print -r -- $c
+}
+
+# How TALL is the terminal? Exactly the same trap as th_cols: zsh reports LINES
+# as `0` off a tty, not as nothing, so ${LINES:-24} never fires where it is
+# most needed. 24 is the fallback because it is what a terminal was when the
+# convention was set and it is still the smallest thing anyone opens.
+th_rows() {
+    local r=${LINES:-0}
+    [[ $r == <-> ]] || r=0
+    (( r == 0 )) && r=24
+    (( r < 5 )) && r=5
+    print -r -- $r
 }
 
 # Wrap TEXT to WIDTH at word boundaries, one line per output line.
