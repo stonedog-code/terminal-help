@@ -51,7 +51,21 @@ th_load_colors() {
 # How wide is the terminal? zsh keeps COLUMNS current, including across a
 # resize. 80 is the fallback when there is no terminal at all (a pipe, a cron
 # job), which is also the width people write help for.
-th_cols() { print -r -- "${COLUMNS:-80}" }
+#
+# The fallback has to test the VALUE, not just its emptiness. Off a tty zsh
+# sets COLUMNS to `0`, not to nothing, and `${COLUMNS:-80}` does not catch a
+# zero — so every th_row took the narrow-terminal path with a NEGATIVE wrap
+# width and emitted one word per line. get_mac_help came out at 787 lines
+# instead of 132, which reads as a runaway rather than as a layout bug, and it
+# quietly falsified the README's claim that `get_git_help > notes.txt` comes
+# out clean. Measured, not guessed: `zsh -c 'echo $COLUMNS'` prints 0.
+th_cols() {
+    local c=${COLUMNS:-0}
+    [[ $c == <-> ]] || c=0      # non-numeric is no answer either
+    (( c == 0 )) && c=80        # no terminal at all
+    (( c < 20 )) && c=20        # a real but absurd width: keep th_wrap positive
+    print -r -- $c
+}
 
 # Wrap TEXT to WIDTH at word boundaries, one line per output line.
 #

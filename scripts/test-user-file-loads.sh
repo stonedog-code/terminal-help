@@ -55,6 +55,21 @@ if ! command -v zsh > /dev/null 2>&1; then
   exit 1
 fi
 
+# The recursion assertions below have to bound a shell that may never return.
+# Same rule as zsh: a missing tool is a failure, because the alternative is a
+# suite that hangs forever in CI, or one that "skips" the only assertion
+# standing between a user file and an unusable shell.
+if command -v timeout > /dev/null 2>&1; then
+  TIMEOUT=timeout
+elif command -v gtimeout > /dev/null 2>&1; then   # coreutils on macOS
+  TIMEOUT=gtimeout
+else
+  echo "test-user-file-loads: no timeout(1), so the recursion assertions cannot" >&2
+  echo "                      be bounded and were NOT run. Install coreutils" >&2
+  echo "                      (brew install coreutils gives gtimeout)." >&2
+  exit 1
+fi
+
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 H="$TMP/home"; mkdir -p "$H"
@@ -239,6 +254,54 @@ for cols in 60 84; do
     printf '%s\n' "$bad_lines" | sed 's/^/      /'
   fi
 done
+
+# --- 6c. off a tty, COLUMNS is 0 rather than empty -------------------------
+# ${COLUMNS:-80} does not catch a zero, so th_wrap was called with a NEGATIVE
+# width and every th_row emitted one word per line: get_mac_help went from 132
+# lines to 787. The assertion is a comparison rather than a magic number —
+# piped output and an 80-column terminal must lay out identically, which is
+# what README's "get_git_help > notes.txt comes out clean" has always claimed.
+piped=$(HOME="$H" ZDOTDIR="$H" zsh -ic 'TH_NO_COLOR=1 get_git_help' 2>/dev/null | wc -l | tr -d ' ')
+at80=$(HOME="$H" ZDOTDIR="$H" COLUMNS=80 zsh -ic 'TH_NO_COLOR=1 COLUMNS=80 get_git_help' 2>/dev/null | wc -l | tr -d ' ')
+if [ "$piped" = "$at80" ]; then
+  ok "piped output lays out like an 80-column terminal ($piped lines both ways)"
+else
+  bad "piped output is $piped lines but an 80-column terminal gives $at80"
+  note "COLUMNS is 0 off a tty; th_cols must treat that as no terminal, not as a width"
+fi
+
+# --- 6d. a topic must not be able to print itself forever ------------------
+# One line in a user file used to hang the shell with no exit but Ctrl-C.
+# Measured on the unguarded code: 44,495 lines in 8 seconds. The extension used
+# here reaches the topic INDIRECTLY, through a wrapper, because that is the
+# form th_extend's own check cannot see — this asserts the loop is closed in
+# th_show_topic, not merely refused at one spelling.
+mkdir -p "$H/.zshrc-help.d"
+cat > "$H/.zshrc-help.d/loop.help.sh" <<'EOF'
+_th_ext_reenters() { get_git_help }
+th_extend git _th_ext_reenters
+EOF
+out=$($TIMEOUT 15 env HOME="$H" ZDOTDIR="$H" zsh -ic 'TH_NO_COLOR=1 get_git_help' 2>&1)
+rc=$?
+if [ "$rc" -eq 124 ]; then
+  bad "a self-referencing extension hung the shell — it had to be killed"
+  note "this is the reported 'loops forever until Ctrl-C'"
+elif [ "$(count "$out" "refusing to re-enter")" -ge 1 ]; then
+  ok "a self-referencing extension is refused instead of looping forever"
+else
+  bad "the shell returned, but nothing said why the topic did not re-enter"
+  note "the guard must SAY something: silence here is indistinguishable from"
+  note "the extension simply not having loaded"
+fi
+
+# ...and the obvious spelling of the same mistake is caught earlier, at
+# registration, where the warning can still name the file being read.
+cat > "$H/.zshrc-help.d/loop.help.sh" <<'EOF'
+th_extend git get_git_help
+EOF
+out=$($TIMEOUT 15 env HOME="$H" ZDOTDIR="$H" zsh -ic 'print DONE' 2>&1)
+[ "$(count "$out" "print itself forever")" -ge 1 ]   && ok "th_extend <topic> get_<topic>_help is refused at registration"   || bad "th_extend accepted a topic's own entry point as one of its hooks"
+rm -f "$H/.zshrc-help.d/loop.help.sh"
 
 # --- 7. quiet mode loads settings, it only silences the banner ------------
 out=$(HOME="$H" ZDOTDIR="$H" TH_QUIET=1 zsh -i -c 'print DONE' 2>&1)

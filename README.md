@@ -607,7 +607,9 @@ Descriptions wrap **into the description column**, not at the left margin:
 ```
 
 Width comes from `$COLUMNS`, which zsh keeps current across a resize; 80 when
-there is no terminal. Below about 50 columns the two-column layout is abandoned
+there is no terminal — and note that "no terminal" means `COLUMNS=0`, not
+`COLUMNS` unset, which is why the fallback tests the value rather than its
+emptiness. Below about 50 columns the two-column layout is abandoned
 rather than squeezed — the label gets its own line. A single unbreakable word
 is left to overflow instead of being split, because these are commands and a
 command broken across lines is a command you cannot copy.
@@ -652,19 +654,28 @@ Run against a real zsh 5.9, not eyeballed:
   block, uninstall removes the runtime and keeps both of your directories.
 - **A behaviour test** — `scripts/test-user-file-loads.sh` installs into a
   throwaway `$HOME`, starts a real zsh, and asserts that `source ~/.zshrc`
-  prints what `~/.zshrc-user.sh` puts there: 10 assertions covering the
+  prints what `~/.zshrc-user.sh` puts there: 21 assertions covering the
   explicit source, an interactive shell, loading exactly once, functions and
   aliases surviving, an **old rc block with no `th_source_user` line**, and
   `TH_QUIET`. `--self-check` plants the regression and requires the suite to
-  catch it — with the fallback removed, 2 of the 10 fail, which is the point.
+  catch it — with the fallback removed, 2 of the 21 fail, which is the point.
 - **macOS's bash, without a Mac** — `scripts/test-macos-bash.sh` runs the
   installer under the official `bash:3.2` image (what macOS ships, frozen in
-  2007): 18 assertions covering parsing, a full install, the files it writes,
+  2007): 22 assertions covering parsing, a full install, the files it writes,
   the truncation guard, and a scan for bash complaining about *anything*.
   `bash -n` here is bash 5 and passes `${var^^}` and associative arrays that
   3.2 rejects at runtime — proved by planting one and watching this catch it.
-- **The gate** — `bash scripts/check-syntax.sh`: 15 files, exit 0, and proved
+- **The gate** — `bash scripts/check-syntax.sh`: 24 files, exit 0, and proved
   non-vacuous by planting a syntax error in a help file and watching it fail.
+- **A topic cannot print itself forever** — an extension that re-enters its own
+  topic used to hang the shell with no exit but Ctrl-C (44,495 lines in 8
+  seconds, ended by `timeout`). It is refused at registration when written the
+  obvious way, and refused again in `th_show_topic` when reached through a
+  wrapper. Both proved non-vacuous by removing each guard in turn.
+- **Off a tty, the layout is unchanged** — `COLUMNS` is `0` there, not empty,
+  and a fallback that tested only for emptiness gave `th_wrap` a negative width
+  and emitted one word per line. Piped output and an 80-column terminal are now
+  asserted to produce the same number of lines.
 - **Colour, in four directions** — present on a tty; absent when piped, under
   `NO_COLOR`, and under `TERM=dumb`.
 
