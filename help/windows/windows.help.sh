@@ -3,6 +3,7 @@
 # TH_TOPIC: windows
 # TH_EMOJI: 🪟
 # TH_DESC:  Windows — winget, WSL, and getting zsh onto the machine
+# TH_RELATED: powershell
 
 _th_help_windows() {
     th_head "🪟" "Windows and PowerShell"
@@ -14,9 +15,6 @@ _th_help_windows() {
     th_row "Git Bash / MSYS2:"   "pacman -S zsh          (MSYS2 only)"
     th_note "Git for Windows ships bash, not zsh; MSYS2 can add zsh but the"
     th_note "PATH is a hybrid and Windows tools see different paths than it does"
-    print -r --
-    th_row "PowerShell help:"    "get_powershell_help"
-    th_note "the profile, execution policy and cmdlets are their own topic"
     print -r --
     th_sub "📦" "winget and everyday commands"
     th_row "Search / install:"   "winget search {name}   ·   winget install {id}"
