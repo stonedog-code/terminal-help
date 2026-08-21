@@ -346,9 +346,12 @@ both of every command would double a list whose whole job is to be readable.
 | `get_git_branch_help` | 🌱 branch naming, Conventional Commits |
 | `get_git_worktree_help` | 🌳 worktrees, and the six rules that make them work |
 | `get_git_pr_help` | 🔀 the `gh` pull-request loop, reviewing, red checks |
-| `get_python_help` | 🐍 Python — with the two below |
+| `get_python_help` | 🐍 Python — with the two below (related: `pytest`) |
 | `get_uv_help` | 📦 `uv`: projects, dependencies, venvs |
 | `get_uvicorn_help` | ⚡ uvicorn and FastAPI launch lines |
+| `get_pytest_help` | 🧪 pytest — running a subset, and green-over-nothing (related: `python`) |
+| `get_pytest_fixtures_help` | 🔧 fixtures, `conftest.py`, scope, `parametrize` |
+| `get_pytest_traps_help` | 🪤 the ways a suite reports success while proving nothing |
 | `get_docker_help` | 🐳 Docker — run, inspect, build, stop |
 | `get_docker_cleanup_help` | 🧹 reclaiming disk, and what each prune really deletes |
 | `get_prisma_help` | 🔺 Prisma — generate, studio, schema paths, the two URLs (related: `pgbouncer`) |
@@ -398,6 +401,11 @@ $ get_mac_help                 # macOS. 31 lines.
 $ get_mac_help --detailed      # all of macOS. 76 lines, paged.
 $ get_mac_help --all           # all of macOS, plus a summary of Homebrew. 96 lines.
 ```
+
+**A relationship can go both ways.** `python` names `pytest` and `pytest` names
+`python`. Under `--all` each side prints exactly once, and *quietly* — the
+re-entrancy warning is for a hook re-entering its own topic, which is a
+mistake, not for this, which is not.
 
 **A related topic expands one level only.** If `a` names `b` and `b` names `c`,
 then `get_a_help --all` shows `a` and `b` and stops. Walking the graph is how
@@ -790,9 +798,9 @@ Run against a real zsh 5.9, not eyeballed:
   the truncation guard, and a scan for bash complaining about *anything*.
   `bash -n` here is bash 5 and passes `${var^^}` and associative arrays that
   3.2 rejects at runtime — proved by planting one and watching this catch it.
-- **The gate** — `bash scripts/check-syntax.sh`: 26 files, exit 0, and proved
+- **The gate** — `bash scripts/check-syntax.sh`: 27 files, exit 0, and proved
   non-vacuous by planting a syntax error in a help file and watching it fail.
-- **A behaviour tier** — `bash scripts/test-behaviour.sh`: 143 assertions that
+- **A behaviour tier** — `bash scripts/test-behaviour.sh`: 165 assertions that
   start a real zsh at a fixed `COLUMNS`/`LINES`, run a command, and read what
   it printed. Parametrised over every topic **discovered from the headers**, so
   it covers the topic somebody adds next without anyone remembering to add it.
