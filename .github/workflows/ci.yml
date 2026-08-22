@@ -86,3 +86,18 @@ jobs:
       # defect in a COPY of the tree and requires a NAMED test to catch it.
       - name: Gate — the behaviour tier can actually fail
         run: bash scripts/test-behaviour.sh --self-check
+
+      # The docs make a claim about the code: the README quotes the banner that
+      # VERSION feeds. Nothing above compares a document to the code, which is
+      # how the README came to advertise v0.14.0 against a VERSION of 0.35.0
+      # (#38) with every tier green the whole time.
+      #
+      # Cheap enough to run last and no runner setup of its own — it is grep
+      # and a string compare.
+      - name: Gate — the docs quote the version we ship
+        run: bash scripts/check-docs-version.sh
+
+      # Same rule as the two tiers above: prove it can fail. This one plants
+      # the wrong version in a throwaway copy, never in the checkout.
+      - name: Gate — the docs-version gate can actually fail
+        run: bash scripts/check-docs-version.sh --self-check

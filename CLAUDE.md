@@ -67,6 +67,24 @@ they are running — and a version covering three different states of the code
 identifies none of them. This was got wrong on #22 and #23, and needed #24 to
 repair it.
 
+**Bump with the script, not by hand:**
+
+```sh
+bash scripts/set-version.sh 0.42.0
+```
+
+`VERSION` is not the only place the version appears — the README quotes the
+banner that `VERSION` feeds, and editing one without the other is the DEFAULT
+outcome rather than a slip. Measured over this repo's history: 32 commits
+touched `VERSION` and only 22 touched `README.md`. The drift that produced was
+21 versions wide (README said v0.14.0 against a `VERSION` of 0.35.0) and every
+tier stayed green throughout, because nothing compared a document to the code.
+
+`scripts/check-docs-version.sh` is now that comparison and gates the merge, so
+a hand-edit that misses the README fails CI. It checks the **banner form
+only** — prose naming an old version on purpose (*"the v0.12.0 regression"*,
+*"as of v0.32.0"*) is history and is deliberately left alone.
+
 ## Every command has an `_info` twin, and it is generated
 
 `get_git_help` and `get_git_info` are one command. `th_info_twin` in
