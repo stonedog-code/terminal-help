@@ -36,25 +36,52 @@ fi
 
 uv sync --quiet --group dev || { printf 'test-behaviour: uv sync failed.\n' >&2; exit 1; }
 
-if [ "${1:-}" = "--self-check" ]; then
-  # Plant a real defect in a COPY of the tree and require the suite to catch it.
-  # The tree under test is a copy precisely so a self-check can never leave the
-  # working tree modified — the failure mode of every in-place plant.
-  tmp=$(mktemp -d) || exit 1
-  trap 'rm -rf "$tmp"' EXIT
+# Plant one real defect in a COPY of the tree and require a NAMED test to catch
+# it. The tree under test is a copy precisely so a self-check can never leave
+# the working tree modified — the failure mode of every in-place plant.
+#
+#   plant <label> <sed-expression> <test-name-that-must-appear>
+plant() {
+  label=$1 expr=$2 want=$3
+  tmp=$(mktemp -d) || return 1
   cp -R . "$tmp/repo" 2>/dev/null
   rm -rf "$tmp/repo/.git" "$tmp/repo/.venv" "$tmp/repo/.venv-macos"
-  # The defect: the _info twin stops being generated. Several named tests must
-  # go red, and test_info_twin_matches_help by name.
-  sed -i.bak '/th_info_twin "get_${name}_help"/d' "$tmp/repo/lib/topics.zsh"
+  sed -i.bak "$expr" "$tmp/repo/lib/topics.zsh"
   out=$(cd "$tmp/repo" && uv run --quiet pytest 2>&1)
   rc=$?
-  printf '%s\n' "$out" | tail -20
-  if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'test_info_twin_matches_help'; then
-    printf '\n  [self-check] the suite FAILED on the planted defect, by name. Correct.\n'
+  rm -rf "$tmp"
+  printf '%s\n' "$out" | tail -8
+  if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "$want"; then
+    printf '  [self-check] %s: FAILED on the plant, and %s went red. Correct.\n\n' "$label" "$want"
+    return 0
+  fi
+  printf '  [self-check] %s: the suite PASSED with the defect planted — IT PROVES NOTHING.\n' "$label" >&2
+  return 1
+}
+
+if [ "${1:-}" = "--self-check" ]; then
+  # TWO plants, because this tier answers two different questions and a guard
+  # is only proved by the failure it was written for.
+  #
+  # The second exists because of NEH-1091. A stray `print` at load time — six
+  # junk lines in every new shell — passed ALL FOUR checks on main (measured
+  # 2026-08-22: exit 0, 37 assertions, 165 tests). The `name=value` guard in
+  # test-user-file-loads.sh knows the shape of the ONE defect it already caught;
+  # it does not generalise. So this plant is deliberately a DIFFERENT shape from
+  # that one, and the test that must catch it asserts the whole of what a new
+  # shell printed rather than looking for noise.
+  fails=0
+  plant "twin generator removed" \
+        '/th_info_twin "get_${name}_help"/d' \
+        'test_info_twin_matches_help' || fails=$((fails + 1))
+  plant "stray output at load time" \
+        's#\[\[ -n $fn \]\] || continue#[[ -n $fn ]] || continue\n        print -r -- "loading sub-section $fn"#' \
+        'test_a_quiet_shell_prints_absolutely_nothing' || fails=$((fails + 1))
+  if [ "$fails" -eq 0 ]; then
+    printf '  [self-check] 2 of 2 plants were caught by name. Correct.\n'
     exit 0
   fi
-  printf '\n  [self-check] the suite passed with the twin generator removed — IT PROVES NOTHING.\n' >&2
+  printf '  [self-check] %s of 2 plants went UNCAUGHT.\n' "$fails" >&2
   exit 1
 fi
 
