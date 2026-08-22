@@ -8,7 +8,7 @@ It runs in **zsh** — macOS, Linux, WSL — and prints exactly one line when a
 shell starts:
 
 ```
-🧰 terminal-help v0.38.0 · get_help
+🧰 terminal-help v0.39.0 · get_help
 ```
 
 Everything host-specific — your servers, your shares, your aliases — lives in
@@ -34,7 +34,7 @@ cd ~/src/terminal-help
 ```
 
 ```
-🧰 terminal-help v0.38.0
+🧰 terminal-help v0.39.0
   Which shells should it be installed for? Pick as many as apply.
 
     1  🍎  macOS       — adds a source line to ~/.zshrc
@@ -314,7 +314,7 @@ the source line and it is read from there instead.
 
 | | |
 |---|---|
-| On every new shell | one line: `🧰 terminal-help v0.38.0 · get_help` |
+| On every new shell | one line: `🧰 terminal-help v0.39.0 · get_help` |
 | Plus | whatever *your* `user_on_load` chooses to print — nothing, by default |
 | Everything else | only when you ask for it by name |
 
@@ -808,13 +808,29 @@ Run against a real zsh 5.9, not eyeballed:
   3.2 rejects at runtime — proved by planting one and watching this catch it.
 - **The gate** — `bash scripts/check-syntax.sh`: 29 files, exit 0, and proved
   non-vacuous by planting a syntax error in a help file and watching it fail.
-- **A behaviour tier** — `bash scripts/test-behaviour.sh`: 165 assertions that
+- **A behaviour tier** — `bash scripts/test-behaviour.sh`: 172 assertions that
   start a real zsh at a fixed `COLUMNS`/`LINES`, run a command, and read what
   it printed. Parametrised over every topic **discovered from the headers**, so
   it covers the topic somebody adds next without anyone remembering to add it.
   pytest is the harness, not the subject — nothing in `tests/` tests Python.
-  `--self-check` removes the `_info` twin generator and requires
-  `test_info_twin_matches_help` to go red **by name**.
+  `--self-check` plants **two** defects and requires a **named** test to catch
+  each: removing the `_info` twin generator (`test_info_twin_matches_help`), and
+  a stray `print` at load time (`test_a_quiet_shell_prints_absolutely_nothing`).
+- **A new shell prints the banner and nothing else** — `tests/test_clean_startup.py`
+  asserts the WHOLE of what sourcing produced, against exactly what it should be.
+  It exists because the guard above it did not generalise: the `name=value` check
+  in `test-user-file-loads.sh` catches the one defect it was written for, and a
+  stray `print` at load time — six junk lines in every new shell — passed **all
+  four checks** on `main` (measured 2026-08-22: exit 0, 37 assertions, 165 tests).
+  Looking for noise means knowing its shape in advance; asserting the whole
+  output does not.
+
+  **Each test first proves the tool loaded.** "Nothing unexpected was printed" is
+  trivially true of a shell that printed nothing, so a source that aborts would
+  otherwise sail through — every test runs a positive control (an entry point is
+  defined, the topic table is populated) before it may conclude anything. Proved
+  by planting a `return 1` in `th_header_field`: zero output, `check-syntax.sh`
+  still green, and this tier red on `PROBE_TOPICS=0`.
 - **A topic cannot print itself forever** — an extension that re-enters its own
   topic used to hang the shell with no exit but Ctrl-C (44,495 lines in 8
   seconds, ended by `timeout`). It is refused at registration when written the

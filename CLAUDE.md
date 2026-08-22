@@ -17,8 +17,8 @@ bash scripts/check-syntax.sh                        # 29 files, zsh + bash parse
 bash scripts/test-user-file-loads.sh                # 37 assertions in a throwaway HOME
 bash scripts/test-user-file-loads.sh --self-check   # must FAIL — proves the above can
 bash scripts/test-macos-bash.sh                     # 26 assertions, installer under real bash 3.2 (docker)
-bash scripts/test-behaviour.sh                      # 165 pytest assertions driving a real zsh
-bash scripts/test-behaviour.sh --self-check         # must FAIL — proves the above can
+bash scripts/test-behaviour.sh                      # 172 pytest assertions driving a real zsh
+bash scripts/test-behaviour.sh --self-check         # must FAIL — 2 plants, each caught BY NAME
 bash scripts/check-docs-version.sh                  # the docs quote the VERSION we ship
 bash scripts/check-docs-version.sh --self-check     # must FAIL — proves the above can
 ```
@@ -30,6 +30,16 @@ bash scripts/check-docs-version.sh --self-check     # must FAIL — proves the a
 flags. Written as linear bash the second one is a thousand lines nobody reads;
 `pytest` parametrises it. **Nothing in `tests/` tests Python** — every
 assertion is about the output of a real zsh, and pytest is only the harness.
+
+**Asserting the whole output beats grepping for noise.** `tests/test_clean_startup.py`
+checks that a new shell prints the banner and *nothing else*, rather than looking
+for junk. The distinction is not academic: the `name=value` guard in
+`test-user-file-loads.sh` catches the defect it was written for, and a stray
+`print` at load time passed **all four checks** on `main` (NEH-1091, measured
+2026-08-22). A guard that knows the shape of the bug it already caught does not
+generalise to the next one. Note the trap that shape brings with it — an absence
+of noise is also what a shell that died prints, so every test there runs a
+positive control before concluding anything.
 
 **A missing tool is a failure, not a skip** — `zsh`, `uv` and `docker` alike. No zsh on the box means the zsh
 files were not checked, and a run that quietly halves its coverage while
