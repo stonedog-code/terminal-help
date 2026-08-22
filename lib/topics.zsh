@@ -142,12 +142,30 @@ th_load_topic_file() {  # th_load_topic_file <file> [category]
     fi
 
     # Secondary functions the file wants listed in the index, indented.
+    #
+    # The line is  function | emoji | description, and slicing on `|` CANNOT
+    # TELL A MISSING FIELD FROM A PRESENT ONE: with no pipe, ${also%%|*} and
+    # ${also#*|} both return the whole string, so the function name became its
+    # own emoji and its own description and the index rendered it three times.
+    # Count the separators first, then fall back the same way a missing
+    # TH_EMOJI/TH_DESC does above — and say so, naming the file, because
+    # TH_ALSO is a documented extension point for user files and the person
+    # who gets this wrong is writing their first one.
     for also in ${(f)"$(th_header_fields "$file" TH_ALSO)"}; do
         local fn=${${also%%|*}##[[:space:]]#}; fn=${fn%%[[:space:]]#}
-        local rest=${also#*|}
-        local ae=${${rest%%|*}##[[:space:]]#}; ae=${ae%%[[:space:]]#}
-        local ad=${${rest#*|}##[[:space:]]#}
         [[ -n $fn ]] || continue
+        # Declared WITH the fallback values, never as a bare `local ae ad`:
+        # zsh's `local` PRINTS a parameter that already exists, so on the
+        # second TH_ALSO line of any file a bare declaration dumps `ae=…` into
+        # every shell that starts. Asserted below, because no tier saw it.
+        local rest=${also#*|} ae="📄" ad=$fn
+        if [[ $also == *'|'*'|'* ]]; then
+            ae=${${rest%%|*}##[[:space:]]#}; ae=${ae%%[[:space:]]#}
+            ad=${${rest#*|}##[[:space:]]#}
+        else
+            th_warn "TH_ALSO in ${file:t}: '$also' has no | emoji | description"
+            th_note "the format is:  # TH_ALSO:  $fn | 📄 | what it covers"
+        fi
         # Sub-sections are commands too, so they get the twin as well. This is
         # also the first thing to eval a name out of a TH_ALSO header, which is
         # why th_info_twin validates rather than trusting the file.

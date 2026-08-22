@@ -363,6 +363,64 @@ fi
   || bad "the rejection was silent"
 rm -f "$H/.zshrc-help.d/deploy.help.sh"
 
+# --- 6e2. a TH_ALSO line that forgot its pipes ----------------------------
+# The format is  function | emoji | description, and the parsing slices on
+# `|` — which cannot tell a missing field from a present one, because
+# ${x%%|*} and ${x#*|} BOTH return the whole string when there is no pipe. So
+# an author who forgot the pipes got the function name rendered as its own
+# emoji and its own description, and nothing said why. TH_ALSO is a documented
+# extension point for user files, so the person hitting this is writing their
+# first help file — silence is the worst possible answer for them.
+cat > "$H/.zshrc-help.d/nopipe.help.sh" <<'EOF'
+# TH_TOPIC: nopipe
+# TH_EMOJI: 🧪
+# TH_DESC:  a topic whose TH_ALSO line forgot its pipes
+# TH_ALSO:  get_nopipe_sub_help
+_th_help_nopipe() { th_row "X:" "NOPIPE_BODY" }
+get_nopipe_sub_help() { th_row "Y:" "SUB_BODY" }
+EOF
+out=$(HOME="$H" ZDOTDIR="$H" COLUMNS=100 zsh -ic 'TH_NO_COLOR=1 COLUMNS=100 get_help' 2>/dev/null)
+# The index row, not the load-time warning: th_warn prints to stdout too, and
+# it necessarily contains the same function name.
+row=$(printf '%s\n' "$out" | grep -E '^[[:space:]]*get_nopipe_sub_help' | head -1)
+# Twice is right — once as the command, once as the fallback description.
+# Three times is the bug: the name was used as the emoji as well.
+n=$(printf '%s\n' "$row" | grep -o 'get_nopipe_sub_help' | wc -l | tr -d ' ')
+if [ "$n" -le 2 ] && [ "$(count "$row" '📄')" -ge 1 ]; then
+  ok "a TH_ALSO line with no pipes falls back to a default emoji, not the function name"
+else
+  bad "a TH_ALSO line with no pipes renders the function name as its own emoji and description"
+  note "the row was: $row"
+fi
+out=$(HOME="$H" ZDOTDIR="$H" zsh -ic 'print DONE' 2>&1)
+{ [ "$(count "$out" "nopipe.help.sh")" -ge 1 ] && [ "$(count "$out" "get_nopipe_sub_help")" -ge 1 ]; } \
+  && ok "...and says so at load, naming the file and quoting the line" \
+  || bad "a TH_ALSO line with no pipes was accepted silently"
+
+# ...while a WELL-FORMED line stays silent, which is not as obvious as it
+# sounds: zsh's `local` PRINTS a parameter that already exists, so declaring
+# the three fields bare rather than with their values dumped `ae=…`/`ad=…` into
+# every shell from the second TH_ALSO line of any file onwards. That was
+# introduced while fixing the above and caught by eye — every tier stayed
+# green, because they all grep for content and none of them looks for noise.
+cat > "$H/.zshrc-help.d/nopipe.help.sh" <<'EOF'
+# TH_TOPIC: nopipe
+# TH_EMOJI: 🧪
+# TH_DESC:  a topic with two well-formed TH_ALSO lines
+# TH_ALSO:  get_nopipe_a_help | 🅰 | the first sub-section
+# TH_ALSO:  get_nopipe_b_help | 🅱 | the second sub-section
+_th_help_nopipe() { th_row "X:" "NOPIPE_BODY" }
+EOF
+out=$(HOME="$H" ZDOTDIR="$H" zsh -ic 'print DONE' 2>&1)
+noise=$(printf '%s\n' "$out" | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' | head -3)
+if [ -z "$noise" ]; then
+  ok "a well-formed TH_ALSO line adds nothing to what a new shell prints"
+else
+  bad "loading a help file dumped parameters into the shell:"
+  printf '%s\n' "$noise" | sed 's/^/      /'
+fi
+rm -f "$H/.zshrc-help.d/nopipe.help.sh"
+
 # --- 6f. a related topic is NAMED by default and printed only under --all --
 # get_mac_help used to end by calling get_homebrew_help outright: at 100 columns
 # it was 132 lines, of which 69 were Homebrew and 21 were macOS. Asking for

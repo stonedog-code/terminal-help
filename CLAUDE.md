@@ -9,16 +9,18 @@ contract.
 
 ## The gate
 
-CI (`.github/workflows/ci.yml`, one job named `gate`) runs six steps, and all
-six run locally:
+CI (`.github/workflows/ci.yml`, one job named `gate`) runs eight steps, and all
+eight run locally:
 
 ```sh
-bash scripts/check-syntax.sh                        # 27 files, zsh + bash parsers
-bash scripts/test-user-file-loads.sh                # 34 assertions in a throwaway HOME
+bash scripts/check-syntax.sh                        # 29 files, zsh + bash parsers
+bash scripts/test-user-file-loads.sh                # 37 assertions in a throwaway HOME
 bash scripts/test-user-file-loads.sh --self-check   # must FAIL — proves the above can
-bash scripts/test-macos-bash.sh                     # 24 assertions, installer under real bash 3.2 (docker)
+bash scripts/test-macos-bash.sh                     # 26 assertions, installer under real bash 3.2 (docker)
 bash scripts/test-behaviour.sh                      # 165 pytest assertions driving a real zsh
 bash scripts/test-behaviour.sh --self-check         # must FAIL — proves the above can
+bash scripts/check-docs-version.sh                  # the docs quote the VERSION we ship
+bash scripts/check-docs-version.sh --self-check     # must FAIL — proves the above can
 ```
 
 **The two suites answer different questions, which is why both exist.**

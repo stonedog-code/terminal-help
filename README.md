@@ -8,7 +8,7 @@ It runs in **zsh** — macOS, Linux, WSL — and prints exactly one line when a
 shell starts:
 
 ```
-🧰 terminal-help v0.37.0 · get_help
+🧰 terminal-help v0.38.0 · get_help
 ```
 
 Everything host-specific — your servers, your shares, your aliases — lives in
@@ -34,7 +34,7 @@ cd ~/src/terminal-help
 ```
 
 ```
-🧰 terminal-help v0.37.0
+🧰 terminal-help v0.38.0
   Which shells should it be installed for? Pick as many as apply.
 
     1  🍎  macOS       — adds a source line to ~/.zshrc
@@ -314,7 +314,7 @@ the source line and it is read from there instead.
 
 | | |
 |---|---|
-| On every new shell | one line: `🧰 terminal-help v0.37.0 · get_help` |
+| On every new shell | one line: `🧰 terminal-help v0.38.0 · get_help` |
 | Plus | whatever *your* `user_on_load` chooses to print — nothing, by default |
 | Everything else | only when you ask for it by name |
 
@@ -527,6 +527,13 @@ in it is validated against `get_<lowercase>_help` before the twin is generated,
 because generating it means `eval`-ing a name that came out of a comment in a
 file terminal-help did not write. A name that is not a plain function name is
 refused, out loud, and nothing is executed.
+
+The other half of that line is the two `|` separators, and forgetting them used
+to be silent: slicing on `|` cannot tell a missing field from a present one, so
+the function name was rendered as its own emoji *and* its own description. A
+line without both separators now falls back to `📄` and the function name — the
+same shape a missing `TH_EMOJI` or `TH_DESC` already had — and says so, naming
+the file it came from.
 
 **PowerShell is content, not a runtime.** terminal-help does not run in
 PowerShell; `get_powershell_help` is a reference — the profile, execution
@@ -787,18 +794,19 @@ Run against a real zsh 5.9, not eyeballed:
   block, uninstall removes the runtime and keeps both of your directories.
 - **A behaviour test** — `scripts/test-user-file-loads.sh` installs into a
   throwaway `$HOME`, starts a real zsh, and asserts that `source ~/.zshrc`
-  prints what `~/.zshrc-user.sh` puts there: 34 assertions covering the
+  prints what `~/.zshrc-user.sh` puts there: 37 assertions covering the
   explicit source, an interactive shell, loading exactly once, functions and
-  aliases surviving, an **old rc block with no `th_source_user` line**, and
-  `TH_QUIET`. `--self-check` plants the regression and requires the suite to
-  catch it — with the fallback removed, 2 of the 34 fail, which is the point.
+  aliases surviving, an **old rc block with no `th_source_user` line**, a
+  `TH_ALSO` line that forgot its pipes, and `TH_QUIET`. `--self-check` plants
+  the regression and requires the suite to catch it — with the fallback
+  removed, 1 of the 37 fails, which is the point.
 - **macOS's bash, without a Mac** — `scripts/test-macos-bash.sh` runs the
   installer under the official `bash:3.2` image (what macOS ships, frozen in
-  2007): 24 assertions covering parsing, a full install, the files it writes,
+  2007): 26 assertions covering parsing, a full install, the files it writes,
   the truncation guard, and a scan for bash complaining about *anything*.
   `bash -n` here is bash 5 and passes `${var^^}` and associative arrays that
   3.2 rejects at runtime — proved by planting one and watching this catch it.
-- **The gate** — `bash scripts/check-syntax.sh`: 27 files, exit 0, and proved
+- **The gate** — `bash scripts/check-syntax.sh`: 29 files, exit 0, and proved
   non-vacuous by planting a syntax error in a help file and watching it fail.
 - **A behaviour tier** — `bash scripts/test-behaviour.sh`: 165 assertions that
   start a real zsh at a fixed `COLUMNS`/`LINES`, run a command, and read what
