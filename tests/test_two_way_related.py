@@ -15,10 +15,18 @@ from conftest import REPO
 
 
 def _header(topic: str) -> str:
-    path = next(
-        p for p in REPO.glob("help/*/*.help.sh")
-        if f"# TH_TOPIC: {topic}" in p.read_text()
-    )
+    # Match the header LINE, not a substring of it. `# TH_TOPIC: playwright`
+    # is a substring of `# TH_TOPIC: playwright_python`, so an unanchored
+    # search resolves a topic to whichever prefix-sharing file the glob
+    # happened to yield first. Nothing caught it while every topic name was a
+    # distinct word; the playwright family made three of them prefixes.
+    def _declares(p) -> bool:
+        return any(
+            line.strip() == f"# TH_TOPIC: {topic}"
+            for line in p.read_text().splitlines()[:20]
+        )
+
+    path = next(p for p in sorted(REPO.glob("help/*/*.help.sh")) if _declares(p))
     return path.read_text()
 
 

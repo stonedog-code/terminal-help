@@ -62,10 +62,18 @@ def test_the_cut_is_inside_the_topic_body(topic):
     """
     from conftest import REPO
 
-    path = next(
-        p for p in REPO.glob("help/*/*.help.sh")
-        if f"# TH_TOPIC: {topic}" in p.read_text()
-    )
+    # Match the header LINE, not a substring of it. `# TH_TOPIC: playwright`
+    # is a substring of `# TH_TOPIC: playwright_python`, so an unanchored
+    # search resolves a topic to whichever prefix-sharing file the glob
+    # happened to yield first. Nothing caught it while every topic name was a
+    # distinct word; the playwright family made three of them prefixes.
+    def _declares(p) -> bool:
+        return any(
+            line.strip() == f"# TH_TOPIC: {topic}"
+            for line in p.read_text().splitlines()[:20]
+        )
+
+    path = next(p for p in sorted(REPO.glob("help/*/*.help.sh")) if _declares(p))
     enclosing = None
     for line in path.read_text().splitlines():
         stripped = line.rstrip()
@@ -110,8 +118,14 @@ def test_detailed_is_strictly_more_than_summary(run, topic):
         for line in result.lines:
             if "🔗 Related topics" in line:
                 break
-            if "--detailed for the rest" in line:
-                continue
+            # The hint is the last thing the summary prints before the
+            # related footer, and th_note WRAPS it — for a long topic name
+            # ("playwright_python_pytest") the phrase spans two lines, so
+            # matching the prose dropped only the first and leaked the second
+            # into the body. Stop collecting at the hint instead: it is always
+            # last, so there is nothing below it to lose.
+            if "--detailed" in line and f"get_{topic}_help" in line:
+                break
             out.append(line)
         # The summary emits a blank line to separate that hint from the content
         # above it; the detailed view has no hint and so no separator. Trailing
@@ -235,7 +249,11 @@ def test_unknown_option_points_at_help(run, topic):
 
 @pytest.mark.parametrize("topic", DETAIL_TOPICS)
 def test_a_topic_with_detail_advertises_it(run, topic):
-    assert "--detailed for the rest" in run(f"get_{topic}_help")
+    # Whitespace-normalised: th_note wraps the hint, and for a long topic
+    # name the phrase spans two lines. Asserting the raw string tested the
+    # wrap width as much as the feature.
+    out = " ".join(run(f"get_{topic}_help").stdout.split())
+    assert "--detailed for the rest of it" in out
 
 
 @pytest.mark.parametrize("topic", FLAT_TOPICS)
