@@ -8,7 +8,7 @@ It runs in **zsh** — macOS, Linux, WSL — and prints exactly one line when a
 shell starts:
 
 ```
-🧰 terminal-help v0.39.0 · get_help
+🧰 terminal-help v0.40.0 · get_help
 ```
 
 Everything host-specific — your servers, your shares, your aliases — lives in
@@ -34,7 +34,7 @@ cd ~/src/terminal-help
 ```
 
 ```
-🧰 terminal-help v0.39.0
+🧰 terminal-help v0.40.0
   Which shells should it be installed for? Pick as many as apply.
 
     1  🍎  macOS       — adds a source line to ~/.zshrc
@@ -314,7 +314,7 @@ the source line and it is read from there instead.
 
 | | |
 |---|---|
-| On every new shell | one line: `🧰 terminal-help v0.39.0 · get_help` |
+| On every new shell | one line: `🧰 terminal-help v0.40.0 · get_help` |
 | Plus | whatever *your* `user_on_load` chooses to print — nothing, by default |
 | Everything else | only when you ask for it by name |
 
@@ -352,6 +352,11 @@ both of every command would double a list whose whole job is to be readable.
 | `get_pytest_help` | 🧪 pytest — running a subset, and green-over-nothing (related: `python`) |
 | `get_pytest_fixtures_help` | 🔧 fixtures, `conftest.py`, scope, `parametrize` |
 | `get_pytest_traps_help` | 🪤 the ways a suite reports success while proving nothing |
+| `get_playwright_help` | 🎭 Playwright — browsers, codegen, traces (related: `playwright_node`, `playwright_python`) |
+| `get_playwright_node_help` | 🟢 `@playwright/test` — projects, UI mode, flakes (related: `playwright`) |
+| `get_playwright_python_help` | 🐍 Playwright for Python — install, browsers, codegen (related: `playwright`, `playwright_python_pytest`) |
+| `get_playwright_python_pytest_help` | 🧪 pytest-playwright — running, fixtures (related: `playwright_python`, `pytest`) |
+| `get_playwright_python_pytest_pom_help` | 🏗 page objects, fixtures, `parametrize` |
 | `get_docker_help` | 🐳 Docker — run, inspect, build, stop |
 | `get_docker_cleanup_help` | 🧹 reclaiming disk, and what each prune really deletes |
 | `get_prisma_help` | 🔺 Prisma — generate, studio, schema paths, the two URLs (related: `pgbouncer`) |
