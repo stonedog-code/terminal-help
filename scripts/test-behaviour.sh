@@ -50,12 +50,32 @@ plant() {
   out=$(cd "$tmp/repo" && uv run --quiet pytest 2>&1)
   rc=$?
   rm -rf "$tmp"
-  printf '%s\n' "$out" | tail -8
-  if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q "$want"; then
+  # No pipes here, and that is load-bearing. `printf | grep -q` looks
+  # harmless, but grep -q exits the moment it matches, which closes the pipe
+  # and hands printf an EPIPE — and with `set -o pipefail` (line 18) the
+  # PIPELINE then reports failure even though the match succeeded. So a
+  # correctly-caught plant gets reported as "IT PROVES NOTHING", and whether
+  # it does depends on how much output the suite produced: the race only
+  # became reachable once the suite grew past ~200 tests. `tail -8` had the
+  # same EPIPE, which is where the stray "printf: write error: Broken pipe"
+  # in the CI log came from.
+  printf '%s\n' "$(printf '%s\n' "$out" | tail -8)"
+  case "$out" in *"$want"*) matched=1 ;; *) matched=0 ;; esac
+  if [ "$rc" -ne 0 ] && [ "$matched" -eq 1 ]; then
     printf '  [self-check] %s: FAILED on the plant, and %s went red. Correct.\n\n' "$label" "$want"
     return 0
   fi
-  printf '  [self-check] %s: the suite PASSED with the defect planted — IT PROVES NOTHING.\n' "$label" >&2
+  # Say WHICH of the two ways this went wrong. The single old message fired
+  # for both, and the two need opposite responses: a suite that stayed green
+  # means the guard does not catch the defect, while a suite that went red
+  # without naming the expected test means the plant landed but something
+  # else caught it — or the detection itself is broken, which is what the
+  # EPIPE race above did.
+  if [ "$rc" -eq 0 ]; then
+    printf '  [self-check] %s: the suite PASSED with the defect planted — IT PROVES NOTHING.\n' "$label" >&2
+  else
+    printf '  [self-check] %s: the suite failed (rc=%s) but %s was not among the failures.\n' "$label" "$rc" "$want" >&2
+  fi
   return 1
 }
 
