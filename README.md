@@ -8,7 +8,7 @@ It runs in **zsh** — macOS, Linux, WSL — and prints exactly one line when a
 shell starts:
 
 ```
-🧰 terminal-help v0.41.0 · get_help
+🧰 terminal-help v0.42.0 · get_help
 ```
 
 Everything host-specific — your servers, your shares, your aliases — lives in
@@ -34,7 +34,7 @@ cd ~/src/terminal-help
 ```
 
 ```
-🧰 terminal-help v0.41.0
+🧰 terminal-help v0.42.0
   Which shells should it be installed for? Pick as many as apply.
 
     1  🍎  macOS       — adds a source line to ~/.zshrc
@@ -314,7 +314,7 @@ the source line and it is read from there instead.
 
 | | |
 |---|---|
-| On every new shell | one line: `🧰 terminal-help v0.41.0 · get_help` |
+| On every new shell | one line: `🧰 terminal-help v0.42.0 · get_help` |
 | Plus | whatever *your* `user_on_load` chooses to print — nothing, by default |
 | Everything else | only when you ask for it by name |
 
@@ -371,6 +371,12 @@ both of every command would double a list whose whole job is to be readable.
 | `get_linux_help` | 🐧 installing zsh, packages, services, ports |
 | `get_windows_help` | 🪟 winget, WSL, zsh on Windows (related: `powershell`) |
 | `get_powershell_help` | 🔷 profile, execution policy, cmdlets from a Unix shell |
+| `get_stonedog_mind_help` | 🧠 stonedog-mind — install, run, the gate, where packs live |
+| `get_stonedog_mind_packs_help` | 📚 packs: where they are found, and what a valid one needs |
+| `get_stonedog_ask_help` | 💬 stonedog-ask — `ask-gemini` / `ask-copilot`, credentials (related: `claude`) |
+| `get_stonedog_ask_cron_help` | ⏰ scheduling `ask-copilot`, and the interpreter that eats an evening |
+| `get_diagram_viewer_help` | 📐 diagram-viewer — uv + FastAPI serving Mermaid `.mer` files (related: `python`) |
+| `get_terminal_help_help` | 🧰 terminal-help itself — clone, install, upgrade, contribute |
 | `get_user_info` | 🔒 yours, from `~/.zshrc-user.sh` |
 
 Only selected topics are defined; `th_topics` shows the rest.
@@ -502,6 +508,10 @@ help/
 ├── technologies/docker.help.sh    🐳
 ├── technologies/prisma.help.sh    🔺
 ├── technologies/pgbouncer.help.sh 🐘
+├── projects/terminal_help.help.sh 🧰  a repo each: install, deps, run
+├── projects/stonedog_mind.help.sh 🧠
+├── projects/stonedog_ask.help.sh  💬
+├── projects/diagram_viewer.help.sh 📐
 └── user/                          🧩  YOURS — a symlink to ~/.zshrc-help.d
 ```
 
@@ -549,24 +559,35 @@ policy, the cmdlets worth knowing from a Unix shell — that you read from zsh.
 `./install.sh` asks which ones you want:
 
 ```
-     1  🐧  linux        Linux — installing zsh, packages, services, ports
-     2  🍺  homebrew     Homebrew — installing, upgrading, and the bits that bite
-     3  🍎  mac          macOS — keys, the default shell, Finder, Homebrew
-     4  🔷  powershell   PowerShell — profile, execution policy, cmdlets
-     5  🤖  claude       Claude Code — CLAUDE.md, settings, and the CLI
-     6  🧑‍✈️  copilot      GitHub Copilot — instructions files, the CLI, chat
-     7  🐳  docker       Docker — images, containers, logs, exec, cleaning up
-     8  🌿  git          git — everyday commands, branches, worktrees, PRs
-     9  🐘  pgbouncer    pgBouncer — pool modes, auth, and the admin console
-    10  🔺  prisma       Prisma — migrations, drift, generate, studio
-    11  🐍  python       Python — uv, virtualenvs, uvicorn
-    12  🪟  windows      Windows — winget, WSL, and getting zsh onto the machine
+     1  🐧  linux          Linux — installing zsh, packages, services, ports
+     2  🍺  homebrew       Homebrew — installing, upgrading, and the bits that bite
+     3  🍎  mac            macOS — keys, the default shell, Finder
+     4  🔷  powershell     PowerShell — profile, execution policy, cmdlets, winget
+     5  📐  diagram_viewer diagram-viewer — uv + FastAPI serving Mermaid .mer diagrams
+     6  💬  stonedog_ask   stonedog-ask — ask-gemini / ask-copilot: install, credentials
+     7  🧠  stonedog_mind  stonedog-mind — install, run, the gate, and where packs live
+     8  🧰  terminal_help  terminal-help — the project: clone, install, upgrade
+     9  🤖  claude         Claude Code — CLAUDE.md, settings, and the CLI
+    10  🧑‍✈️  copilot        GitHub Copilot — instructions files, the CLI, chat
+    11  🐳  docker         Docker — images, containers, logs, exec, cleaning up
+    12  🌿  git            git — everyday commands, branches, worktrees, PRs
+    13  🐘  pgbouncer      pgBouncer — pool modes, auth, and the admin console
+    14  🎭  playwright     Playwright — browsers, codegen, traces
+    15  🟢  playwright_node        Playwright for Node — @playwright/test
+    16  🐍  playwright_python      Playwright for Python — install, codegen
+    17  🧪  playwright_python_pytest  pytest-playwright — running, fixtures
+    18  🔺  prisma         Prisma — migrations, drift, generate, studio
+    19  🧪  pytest         pytest — a subset, fixtures, green-over-nothing
+    20  🐍  python         Python — uv, virtualenvs, uvicorn
+    21  🪟  windows        Windows — winget, WSL, and getting zsh onto the machine
 
-  Numbers (comma or space separated), "a" for all [linux git python]:
+  Numbers (comma or space separated), "a" for all [linux git python pytest]:
 ```
 
-Pick `8` and `get_git_help` works. The default is your platform plus the
-common technologies.
+Pick `12` and `get_git_help` works. The default is your platform plus the
+common technologies. The order is the order the files sit in on disk —
+`help/<category>/<topic>.help.sh` — which is why `projects/` lands between
+`powershell` and `technologies/`.
 
 **Everything is installed either way; the selection decides what loads.** That
 matters six months later: `th_topics enable mac` turns one on in a second, with
