@@ -8,7 +8,7 @@ It runs in **zsh** — macOS, Linux, WSL — and prints exactly one line when a
 shell starts:
 
 ```
-🧰 terminal-help v0.42.0 · get_help
+🧰 terminal-help v0.43.0 · get_help
 ```
 
 Everything host-specific — your servers, your shares, your aliases — lives in
@@ -34,7 +34,7 @@ cd ~/src/terminal-help
 ```
 
 ```
-🧰 terminal-help v0.42.0
+🧰 terminal-help v0.43.0
   Which shells should it be installed for? Pick as many as apply.
 
     1  🍎  macOS       — adds a source line to ~/.zshrc
@@ -314,7 +314,7 @@ the source line and it is read from there instead.
 
 | | |
 |---|---|
-| On every new shell | one line: `🧰 terminal-help v0.42.0 · get_help` |
+| On every new shell | one line: `🧰 terminal-help v0.43.0 · get_help` |
 | Plus | whatever *your* `user_on_load` chooses to print — nothing, by default |
 | Everything else | only when you ask for it by name |
 
@@ -363,8 +363,10 @@ both of every command would double a list whose whole job is to be readable.
 | `get_prisma_migrate_help` | 🚚 migrations: dev vs deploy, and unsticking a failed one |
 | `get_pgbouncer_help` | 🐘 pgBouncer — pool modes, what transaction mode breaks, auth |
 | `get_pgbouncer_admin_help` | 🎛 the admin console: `SHOW POOLS`, `PAUSE`, `RELOAD` |
-| `get_mac_help` | 🍎 keys, the default shell, Finder (related: `homebrew`) |
+| `get_mac_help` | 🍎 keys, the default shell, Finder (related: `homebrew`, `mac_terminal`) |
 | `get_mac_keys_help` | ⌨️ moving the cursor: why Home is not Home on a Mac |
+| `get_mac_terminal_help` | 🖥 Terminal.app — tabs, titles, panes, marks, Finder (related: `mac`) |
+| `get_mac_terminal_title_help` | 🏷 naming a tab from a script, and what overwrites it |
 | `get_homebrew_help` | 🍺 brew — upgrading, Brewfiles, services, what bites (`get_brew_help`) |
 | `get_claude_help` | 🤖 Claude Code — CLAUDE.md, settings.json, the CLI |
 | `get_copilot_help` | 🧑‍✈️ GitHub Copilot — instructions files, chat, `gh copilot` |
@@ -500,6 +502,7 @@ whatever it is about:
 ```
 help/
 ├── mac/mac.help.sh                🍎  platforms
+├── mac/mac_terminal.help.sh       🖥
 ├── linux/linux.help.sh            🐧
 ├── windows/windows.help.sh        🪟
 ├── powershell/powershell.help.sh  🔷  a shell you may not be running
@@ -562,29 +565,30 @@ policy, the cmdlets worth knowing from a Unix shell — that you read from zsh.
      1  🐧  linux          Linux — installing zsh, packages, services, ports
      2  🍺  homebrew       Homebrew — installing, upgrading, and the bits that bite
      3  🍎  mac            macOS — keys, the default shell, Finder
-     4  🔷  powershell     PowerShell — profile, execution policy, cmdlets, winget
-     5  📐  diagram_viewer diagram-viewer — uv + FastAPI serving Mermaid .mer diagrams
-     6  💬  stonedog_ask   stonedog-ask — ask-gemini / ask-copilot: install, credentials
-     7  🧠  stonedog_mind  stonedog-mind — install, run, the gate, and where packs live
-     8  🧰  terminal_help  terminal-help — the project: clone, install, upgrade
-     9  🤖  claude         Claude Code — CLAUDE.md, settings, and the CLI
-    10  🧑‍✈️  copilot        GitHub Copilot — instructions files, the CLI, chat
-    11  🐳  docker         Docker — images, containers, logs, exec, cleaning up
-    12  🌿  git            git — everyday commands, branches, worktrees, PRs
-    13  🐘  pgbouncer      pgBouncer — pool modes, auth, and the admin console
-    14  🎭  playwright     Playwright — browsers, codegen, traces
-    15  🟢  playwright_node        Playwright for Node — @playwright/test
-    16  🐍  playwright_python      Playwright for Python — install, codegen
-    17  🧪  playwright_python_pytest  pytest-playwright — running, fixtures
-    18  🔺  prisma         Prisma — migrations, drift, generate, studio
-    19  🧪  pytest         pytest — a subset, fixtures, green-over-nothing
-    20  🐍  python         Python — uv, virtualenvs, uvicorn
-    21  🪟  windows        Windows — winget, WSL, and getting zsh onto the machine
+     4  🖥  mac_terminal   Terminal.app — tabs, titles, panes, marks, Finder
+     5  🔷  powershell     PowerShell — profile, execution policy, cmdlets, winget
+     6  📐  diagram_viewer diagram-viewer — uv + FastAPI serving Mermaid .mer diagrams
+     7  💬  stonedog_ask   stonedog-ask — ask-gemini / ask-copilot: install, credentials
+     8  🧠  stonedog_mind  stonedog-mind — install, run, the gate, and where packs live
+     9  🧰  terminal_help  terminal-help — the project: clone, install, upgrade
+    10  🤖  claude         Claude Code — CLAUDE.md, settings, and the CLI
+    11  🧑‍✈️  copilot        GitHub Copilot — instructions files, the CLI, chat
+    12  🐳  docker         Docker — images, containers, logs, exec, cleaning up
+    13  🌿  git            git — everyday commands, branches, worktrees, PRs
+    14  🐘  pgbouncer      pgBouncer — pool modes, auth, and the admin console
+    15  🎭  playwright     Playwright — browsers, codegen, traces
+    16  🟢  playwright_node        Playwright for Node — @playwright/test
+    17  🐍  playwright_python      Playwright for Python — install, codegen
+    18  🧪  playwright_python_pytest  pytest-playwright — running, fixtures
+    19  🔺  prisma         Prisma — migrations, drift, generate, studio
+    20  🧪  pytest         pytest — a subset, fixtures, green-over-nothing
+    21  🐍  python         Python — uv, virtualenvs, uvicorn
+    22  🪟  windows        Windows — winget, WSL, and getting zsh onto the machine
 
   Numbers (comma or space separated), "a" for all [linux git python pytest]:
 ```
 
-Pick `12` and `get_git_help` works. The default is your platform plus the
+Pick `13` and `get_git_help` works. The default is your platform plus the
 common technologies. The order is the order the files sit in on disk —
 `help/<category>/<topic>.help.sh` — which is why `projects/` lands between
 `powershell` and `technologies/`.

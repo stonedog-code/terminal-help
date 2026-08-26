@@ -6,6 +6,7 @@
 # TH_DESC:  macOS — keys, the default shell, Finder
 # TH_ALSO:  get_mac_keys_help | ⌨️ | moving the cursor: why Home is not Home
 # TH_RELATED: homebrew
+# TH_RELATED: mac_terminal
 
 _th_help_mac() {
     th_head "🍎" "macOS"
