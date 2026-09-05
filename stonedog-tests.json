@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "project": "terminal-help",
+  "tiers": {
+    "unit": {
+      "include": ["tests/test_*.py"]
+    }
+  }
+}
